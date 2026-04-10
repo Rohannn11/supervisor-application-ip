@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import GPSStatusBar from '../src/components/GPSStatusBar';
@@ -14,6 +15,7 @@ const TASKS = [
     checkpoints: { done: 4, total: 12 },
     status: 'in-progress',
     priority: 'high',
+    image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&q=80',
   },
   {
     id: 2,
@@ -23,6 +25,7 @@ const TASKS = [
     checkpoints: { done: 0, total: 8 },
     status: 'upcoming',
     priority: 'routine',
+    image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&q=80',
   },
   {
     id: 3,
@@ -32,6 +35,7 @@ const TASKS = [
     checkpoints: { done: 0, total: 5 },
     status: 'upcoming',
     priority: 'high',
+    image: 'https://images.unsplash.com/photo-1555529733-0e670560f8e1?w=600&q=80',
   },
 ];
 
@@ -87,15 +91,9 @@ export default function AssignedPatrolTasks() {
 
         {TASKS.map(task => (
           <View key={task.id} style={styles.taskCard}>
-            {/* Site Image Placeholder */}
+            {/* Site Image */}
             <View style={styles.taskImageContainer}>
-              <View style={styles.taskImagePlaceholder}>
-                <MaterialIcons
-                  name={task.id === 2 ? 'apartment' : 'warehouse'}
-                  size={48}
-                  color={Colors.textMuted}
-                />
-              </View>
+              <Image source={{ uri: task.image }} style={styles.taskImage} resizeMode="cover" />
               {getStatusBadge(task.status)}
             </View>
 
@@ -174,10 +172,9 @@ const styles = StyleSheet.create({
     elevation: 3, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10,
   },
-  taskImageContainer: { position: 'relative', height: 160 },
-  taskImagePlaceholder: {
-    width: '100%', height: '100%', backgroundColor: '#d1d5db',
-    alignItems: 'center', justifyContent: 'center',
+  taskImageContainer: { position: 'relative', height: 160, backgroundColor: '#d1d5db' },
+  taskImage: {
+    width: '100%', height: '100%',
   },
   statusBadge: {
     position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4,

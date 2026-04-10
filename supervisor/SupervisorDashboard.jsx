@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../src/context/AuthContext';
@@ -49,7 +50,7 @@ export default function SupervisorDashboard() {
         {/* Hero Card */}
         <View style={styles.heroCard}>
           <Image
-            source={{ uri: 'https://maps.googleapis.com/maps/api/staticmap?center=19.076,72.8777&zoom=13&size=600x300&maptype=roadmap&key=PLACEHOLDER' }}
+            source={{ uri: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800&q=80' }}
             style={styles.heroMapBg}
           />
           <View style={styles.heroOverlay}>

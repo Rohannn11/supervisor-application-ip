@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../src/context/AuthContext';
 import { useAppContext } from '../src/context/AppContext';
@@ -45,7 +46,8 @@ export default function SupervisorLogin() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.container}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.brandSection}>
           <View style={styles.iconContainer}>
             <MaterialIcons name="admin-panel-settings" size={40} color={Colors.textWhite} />
@@ -93,13 +95,30 @@ export default function SupervisorLogin() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.loginButton}
-            onPress={handleContinueWithOTP}
-          >
-            <Text style={styles.loginButtonText}>Continue with OTP</Text>
-            <MaterialIcons name="arrow-forward" size={20} color={Colors.textWhite} />
-          </TouchableOpacity>
+          {photoTaken ? (
+            <TouchableOpacity
+              style={styles.loginButton}
+              onPress={() => login(employeeId || 'EMP-1234', '')}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color={Colors.textWhite} />
+              ) : (
+                <>
+                  <Text style={styles.loginButtonText}>Authenticate with Photo</Text>
+                  <MaterialIcons name="verified-user" size={20} color={Colors.textWhite} />
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.loginButton, { backgroundColor: Colors.surface, borderWidth: 2, borderColor: Colors.primary }]}
+              onPress={handleContinueWithOTP}
+            >
+              <Text style={[styles.loginButtonText, { color: Colors.primary }]}>Login via OTP</Text>
+              <MaterialIcons name="sms" size={20} color={Colors.primary} />
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity style={styles.voiceHint}>
             <MaterialIcons name="mic" size={24} color={Colors.primary} />
@@ -127,7 +146,8 @@ export default function SupervisorLogin() {
             })}
           </View>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <View style={styles.footer}>
         <View style={styles.footerBadge}>

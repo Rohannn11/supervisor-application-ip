@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import GPSStatusBar from '../src/components/GPSStatusBar';
@@ -14,6 +15,11 @@ export default function ActivePatrolMap() {
 
       <View style={styles.mapContainer}>
         {/* Mock Map Background */}
+        <Image
+          source={{ uri: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800&q=80' }}
+          style={[StyleSheet.absoluteFillObject, { opacity: 0.9, backgroundColor: '#e8e4d8' }]}
+          resizeMode="cover"
+        />
         <View style={styles.mapBg}>
           {/* Boundary Rectangle */}
           <View style={styles.boundaryBox}>
@@ -134,7 +140,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.textPrimary },
   mapContainer: { flex: 1, position: 'relative' },
   mapBg: {
-    flex: 1, backgroundColor: '#e8e4d8',
+    flex: 1, backgroundColor: 'transparent',
     // Gradient-like feel for map
   },
   boundaryBox: {

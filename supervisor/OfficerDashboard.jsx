@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Animated, PanResponder, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, PanResponder, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAppContext } from '../src/context/AppContext';
@@ -28,7 +29,7 @@ export default function OfficerDashboard() {
             duration: 200,
             useNativeDriver: false,
           }).start(() => {
-            navigation.navigate('EmergencySOSActive');
+            navigation.navigate('HomeTab', { screen: 'EmergencySOSActive' });
             // reset after nav
             setTimeout(() => slideAnim.setValue(0), 500);
           });
@@ -54,7 +55,7 @@ export default function OfficerDashboard() {
           style: "destructive",
           onPress: () => {
             endPatrol();
-            navigation.navigate('SupervisorDashboard');
+            navigation.navigate('HomeTab', { screen: 'SupervisorDashboard' });
           }
         }
       ]
@@ -110,7 +111,7 @@ export default function OfficerDashboard() {
         <View style={styles.grid}>
           <TouchableOpacity 
             style={styles.gridItem}
-            onPress={() => navigation.navigate('CheckpointScanScreen')}
+            onPress={() => navigation.navigate('HomeTab', { screen: 'CheckpointScanScreen' })}
           >
             <View style={[styles.iconWrap, { backgroundColor: '#e0e7ff' }]}>
               <MaterialIcons name="qr-code-scanner" size={28} color={Colors.primary} />
@@ -120,7 +121,7 @@ export default function OfficerDashboard() {
 
           <TouchableOpacity 
             style={styles.gridItem}
-            onPress={() => navigation.navigate('ChecklistTab')}
+            onPress={() => navigation.navigate('ChecklistTab', { screen: 'PatrolChecklist' })}
           >
             <View style={[styles.iconWrap, { backgroundColor: '#fef3c7' }]}>
               <MaterialIcons name="assignment" size={28} color="#b45309" />
@@ -167,7 +168,7 @@ export default function OfficerDashboard() {
           </View>
           <TouchableOpacity 
             style={styles.goBtn}
-            onPress={() => navigation.navigate('CheckpointScanScreen')}
+            onPress={() => navigation.navigate('HomeTab', { screen: 'CheckpointScanScreen' })}
           >
             <Text style={styles.goBtnText}>GO</Text>
           </TouchableOpacity>

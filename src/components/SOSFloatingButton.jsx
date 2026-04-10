@@ -54,7 +54,7 @@ export default function SOSFloatingButton() {
 
     pressTimer.current = setTimeout(() => {
       Vibration.vibrate([0, 200, 100, 200]);
-      navigation.navigate('EmergencySOSActive');
+      navigation.navigate('HomeTab', { screen: 'EmergencySOSActive' });
       setPressing(false);
       setCountdown(0);
     }, 3000);

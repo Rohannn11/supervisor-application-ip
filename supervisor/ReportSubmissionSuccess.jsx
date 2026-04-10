@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../src/theme/colors';
@@ -39,7 +40,7 @@ export default function ReportSubmissionSuccess() {
       setRedirectCountdown(prev => {
         if (prev <= 1) {
           clearInterval(timer);
-          navigation.navigate('SupervisorDashboard');
+          navigation.navigate('HomeTab', { screen: 'SupervisorDashboard' });
           return 0;
         }
         return prev - 1;
@@ -80,7 +81,7 @@ export default function ReportSubmissionSuccess() {
 
         <TouchableOpacity
           style={styles.homeBtn}
-          onPress={() => navigation.navigate('SupervisorDashboard')}
+          onPress={() => navigation.navigate('HomeTab', { screen: 'SupervisorDashboard' })}
         >
           <Text style={styles.homeBtnText}>Back to Home</Text>
         </TouchableOpacity>

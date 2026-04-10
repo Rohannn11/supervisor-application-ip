@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../src/theme/colors';
@@ -62,7 +63,8 @@ export default function PatrolChecklist() {
         <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.container}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.container}>
         {items.map((item, index) => (
           <View key={item.id} style={styles.checkItem}>
             <View style={styles.checkHeader}>
@@ -204,7 +206,8 @@ export default function PatrolChecklist() {
         </View>
 
         <View style={{ height: 40 }} />
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

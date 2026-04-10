@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import LanguageSwitcher from '../src/components/LanguageSwitcher';
@@ -24,6 +25,7 @@ const REPORTS = [
     duration: '45m',
     status: 'approved',
     type: 'checklist',
+    image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&q=80',
   },
   {
     id: 2,
@@ -33,6 +35,7 @@ const REPORTS = [
     duration: '1h 10m',
     status: 'pending',
     type: 'incident',
+    image: 'https://images.unsplash.com/photo-1621619856624-42fd193a0661?w=600&q=80',
   },
   {
     id: 3,
@@ -42,6 +45,7 @@ const REPORTS = [
     duration: '30m',
     status: 'sent-back',
     type: 'checklist',
+    image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&q=80',
   },
 ];
 
@@ -185,13 +189,8 @@ export default function PatrolHistory() {
           const status = getStatusStyle(report.status);
           return (
             <View key={report.id} style={styles.reportCard}>
-              {/* Image Placeholder */}
-              <View style={styles.reportImage}>
-                <MaterialIcons
-                  name={report.type === 'incident' ? 'warning' : 'warehouse'}
-                  size={36}
-                  color={Colors.textMuted}
-                />
+              <View style={styles.reportImageContainer}>
+                <Image source={{ uri: report.image }} style={styles.reportImageActual} resizeMode="cover" />
               </View>
 
               <View style={styles.reportContent}>
@@ -283,9 +282,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface, borderRadius: 16, marginBottom: 16,
     elevation: 2, overflow: 'hidden',
   },
-  reportImage: {
-    height: 140, backgroundColor: '#d1d5db', alignItems: 'center', justifyContent: 'center',
-  },
+  reportImageContainer: { height: 140, backgroundColor: '#d1d5db' },
+  reportImageActual: { width: '100%', height: '100%' },
   reportContent: { padding: 16 },
   reportTitleRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8,
