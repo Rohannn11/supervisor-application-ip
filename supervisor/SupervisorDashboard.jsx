@@ -33,7 +33,7 @@ export default function SupervisorDashboard() {
         <View style={styles.headerLeft}>
           <TouchableOpacity 
             style={styles.avatarSmall}
-            onPress={() => Alert.alert("Profile Settings", "User profile and settings page coming in Phase 2.")}
+            onPress={() => navigation.navigate('ProfileTab')}
           >
             <MaterialIcons name="person" size={20} color={Colors.textWhite} />
           </TouchableOpacity>

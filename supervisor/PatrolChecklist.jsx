@@ -73,9 +73,8 @@ export default function PatrolChecklist() {
 
     setIsSubmitting(true);
     try {
-      // In a real device, 10.0.2.2 is Android Emulator. For physical, use the actual IP.
-      // We'll wrap it so it doesn't break the UI if network is unreachable during POC.
-      const API_URL = 'http://10.0.2.2:3000/api/patrol/submit';
+      // Updated to use the correct local IP for physical Android testing
+      const API_URL = 'http://192.168.1.6:3000/api/patrol/submit';
       
       const payload = {
         shiftId: user?.shift || 'SH-1024',

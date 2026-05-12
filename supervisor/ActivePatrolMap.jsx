@@ -13,6 +13,7 @@ export default function ActivePatrolMap() {
   const [location, setLocation] = useState(null);
   const [siteCenter, setSiteCenter] = useState(null);
   const [isInsideGeofence, setIsInsideGeofence] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
 
   // 100 meters radius
   const GEOFENCE_RADIUS_METERS = 100; 
@@ -85,15 +86,22 @@ export default function ActivePatrolMap() {
          
          const inside = distance <= GEOFENCE_RADIUS_METERS;
          setIsInsideGeofence(inside);
-         if (!inside) {
+         // Only alert if we've actually locked the geofence
+         if (!inside && isLocked) {
            Alert.alert("Geofence Warning", "You are OUTSIDE the designated 100m patrol site geofence.");
          }
       });
     })();
     return () => { if(sub) sub.remove(); };
-  }, []);
+  }, [isLocked, siteCenter]);
 
   const checkpointsToRender = getMockCheckpoints(siteCenter);
+
+  const handleRegionChangeComplete = (region) => {
+    if (!isLocked) {
+      setSiteCenter({ latitude: region.latitude, longitude: region.longitude });
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -106,10 +114,12 @@ export default function ActivePatrolMap() {
             initialRegion={{
               latitude: siteCenter.latitude,
               longitude: siteCenter.longitude,
-              latitudeDelta: 0.003, // Zoomed in
+              latitudeDelta: 0.003,
               longitudeDelta: 0.003,
             }}
-            showsUserLocation={false} 
+            showsUserLocation={false}
+            onRegionChangeComplete={handleRegionChangeComplete}
+            scrollEnabled={!isLocked}
           >
             {/* Geofence Circle (100m) */}
             <Circle
@@ -173,6 +183,22 @@ export default function ActivePatrolMap() {
             <Text style={styles.sosHeaderText}>SOS</Text>
           </TouchableOpacity>
         </View>
+
+        {!isLocked && (
+          <View style={styles.lockContainer}>
+            <Text style={styles.lockHint}>Drag map to adjust patrol center</Text>
+            <TouchableOpacity 
+              style={styles.lockBtn} 
+              onPress={() => {
+                Alert.alert("Locked", "Patrol boundary locked for this session.");
+                setIsLocked(true);
+              }}
+            >
+              <MaterialIcons name="lock" size={20} color={Colors.textWhite} />
+              <Text style={styles.lockBtnText}>LOCK BOUNDARY</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Map Controls */}
         <View style={styles.mapControls}>
@@ -302,6 +328,16 @@ const styles = StyleSheet.create({
   checklistPromptContent: { flex: 1 },
   checklistPromptTitle: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
   checklistPromptSub: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  lockContainer: {
+    position: 'absolute', top: 80, left: 0, right: 0, alignItems: 'center',
+  },
+  lockHint: {
+    backgroundColor: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginBottom: 8,
+  },
+  lockBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, elevation: 4,
+  },
+  lockBtnText: { color: Colors.textWhite, fontWeight: 'bold' },
   bottomCard: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,

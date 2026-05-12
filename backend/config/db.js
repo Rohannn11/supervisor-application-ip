@@ -16,7 +16,11 @@ const connectMySQL = async () => {
       uri: process.env.MYSQL_URL,
       waitForConnections: true,
       connectionLimit: 10,
-      queueLimit: 0
+      queueLimit: 0,
+      ssl: {
+        rejectUnauthorized: true,
+        minVersion: 'TLSv1.2'
+      }
     });
     
     const connection = await pool.getConnection();
