@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Colors } from '../src/theme/colors';
 
 export default function ReportOccurrences() {
@@ -27,6 +29,71 @@ export default function ReportOccurrences() {
 
   const updateDescription = (id, text) => {
     setOccurrences(occurrences.map(o => o.id === id ? { ...o, description: text } : o));
+  };
+
+  const handleAddMedia = async (id, useCamera = false) => {
+    try {
+      if (useCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          alert('Sorry, we need camera permissions to make this work!');
+          return;
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          alert('Sorry, we need camera roll permissions to make this work!');
+          return;
+        }
+      }
+
+      let result;
+      if (useCamera) {
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images', 'videos'],
+          quality: 0.8,
+        });
+      } else {
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images', 'videos'],
+          quality: 0.8,
+        });
+      }
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        let finalUri = asset.uri;
+
+        if (asset.type === 'image') {
+           const manipResult = await ImageManipulator.manipulateAsync(
+             asset.uri,
+             [{ resize: { width: 1080 } }],
+             { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+           );
+           finalUri = manipResult.uri;
+        }
+
+        setOccurrences(occurrences.map(o => {
+          if (o.id === id) {
+            return { ...o, evidence: [...o.evidence, finalUri] };
+          }
+          return o;
+        }));
+      }
+    } catch (error) {
+      console.error("Error adding media:", error);
+    }
+  };
+
+  const removeEvidence = (id, index) => {
+    setOccurrences(occurrences.map(o => {
+      if (o.id === id) {
+        const newEvidence = [...o.evidence];
+        newEvidence.splice(index, 1);
+        return { ...o, evidence: newEvidence };
+      }
+      return o;
+    }));
   };
 
   return (
@@ -103,30 +170,34 @@ export default function ReportOccurrences() {
                 <View style={styles.evidenceGrid}>
                   {occurrence.evidence.map((ev, i) => (
                     <View key={i} style={styles.evidenceThumb}>
-                      <MaterialIcons name={ev.includes('video') ? 'videocam' : 'image'} size={24} color={Colors.textMuted} />
-                      <TouchableOpacity style={styles.removeEvidence}>
+                      {ev.includes('photo') || ev.includes('video') ? (
+                        <MaterialIcons name={ev.includes('video') ? 'videocam' : 'image'} size={24} color={Colors.textMuted} />
+                      ) : (
+                        <Image source={{ uri: ev }} style={{ width: '100%', height: '100%', borderRadius: 12 }} />
+                      )}
+                      <TouchableOpacity style={styles.removeEvidence} onPress={() => removeEvidence(occurrence.id, i)}>
                         <MaterialIcons name="close" size={14} color={Colors.textWhite} />
                       </TouchableOpacity>
                     </View>
                   ))}
-                  <TouchableOpacity style={styles.addMoreEvidence}>
+                  <TouchableOpacity style={styles.addMoreEvidence} onPress={() => handleAddMedia(occurrence.id, false)}>
                     <MaterialIcons name="add-a-photo" size={20} color={Colors.textMuted} />
                     <Text style={styles.addMoreText}>Add More</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <View style={styles.mediaRow}>
-                  <TouchableOpacity style={styles.mediaBtn}>
+                  <TouchableOpacity style={styles.mediaBtn} onPress={() => handleAddMedia(occurrence.id, true)}>
                     <View style={[styles.mediaBtnIcon, { backgroundColor: '#dbeafe' }]}>
                       <MaterialIcons name="photo-camera" size={24} color={Colors.primary} />
                     </View>
                     <Text style={styles.mediaBtnText}>Take Photo</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.mediaBtn}>
+                  <TouchableOpacity style={styles.mediaBtn} onPress={() => handleAddMedia(occurrence.id, false)}>
                     <View style={[styles.mediaBtnIcon, { backgroundColor: '#dbeafe' }]}>
-                      <MaterialIcons name="videocam" size={24} color={Colors.primary} />
+                      <MaterialIcons name="image" size={24} color={Colors.primary} />
                     </View>
-                    <Text style={styles.mediaBtnText}>Record Video</Text>
+                    <Text style={styles.mediaBtnText}>Gallery / Video</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -148,7 +219,18 @@ export default function ReportOccurrences() {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.submitBtn}
-          onPress={() => navigation.navigate('ReportSubmissionSuccess')}
+          onPress={() => {
+            if (occurrences.length === 0) {
+              alert("Please add at least one occurrence before submitting.");
+              return;
+            }
+            const invalid = occurrences.find(o => !o.description.trim() && o.evidence.length === 0);
+            if (invalid) {
+              alert(`Occurrence #${invalid.id} needs either a description or evidence.`);
+              return;
+            }
+            navigation.navigate('ReportSubmissionSuccess');
+          }}
         >
           <Text style={styles.submitBtnText}>Submit All Occurrences</Text>
           <MaterialIcons name="check-circle" size={20} color={Colors.textWhite} />

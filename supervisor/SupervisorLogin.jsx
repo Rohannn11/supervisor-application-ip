@@ -15,11 +15,20 @@ export default function SupervisorLogin() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
 
   const handleContinueWithOTP = () => {
+    if (!employeeId.trim()) {
+      alert("Please enter Employee ID or Mobile number");
+      return;
+    }
     setShowOTP(true);
   };
 
   const handleVerifyOTP = async () => {
-    await login(employeeId, otp.join(''));
+    const fullOtp = otp.join('');
+    if (fullOtp.length !== 6) {
+      alert("Please enter a valid 6-digit OTP");
+      return;
+    }
+    await login(employeeId, fullOtp);
   };
 
   const handleOtpChange = (value, index) => {
@@ -98,7 +107,13 @@ export default function SupervisorLogin() {
           {photoTaken ? (
             <TouchableOpacity
               style={styles.loginButton}
-              onPress={() => login(employeeId || 'EMP-1234', '')}
+              onPress={() => {
+                if (!employeeId.trim()) {
+                  alert("Please enter Employee ID or Mobile number");
+                  return;
+                }
+                login(employeeId, '');
+              }}
               disabled={isLoading}
             >
               {isLoading ? (

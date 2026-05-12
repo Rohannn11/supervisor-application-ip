@@ -11,7 +11,7 @@ import { Colors } from '../src/theme/colors';
 export default function SupervisorDashboard() {
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { isPatrolActive, startPatrol } = useAppContext();
+  const { isPatrolActive, startPatrol, gpsStatus } = useAppContext();
 
   const handleStartPatrol = () => {
     startPatrol();
@@ -42,9 +42,15 @@ export default function SupervisorDashboard() {
 
       <ScrollView contentContainerStyle={styles.container}>
         {/* GPS Status */}
-        <View style={styles.gpsPill}>
-          <MaterialIcons name="check-circle" size={18} color={Colors.success} />
-          <Text style={styles.gpsPillText}>Online • GPS Active</Text>
+        <View style={[styles.gpsPill, gpsStatus === 'disconnected' && { backgroundColor: Colors.dangerLight }]}>
+          <MaterialIcons 
+            name={gpsStatus === 'connected' ? "check-circle" : "error"} 
+            size={18} 
+            color={gpsStatus === 'connected' ? Colors.success : Colors.danger} 
+          />
+          <Text style={[styles.gpsPillText, gpsStatus === 'disconnected' && { color: Colors.danger }]}>
+            {gpsStatus === 'connected' ? 'Online • GPS Active' : 'Offline • GPS Inactive'}
+          </Text>
         </View>
 
         {/* Hero Card */}
