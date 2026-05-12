@@ -90,7 +90,10 @@ export default function PatrolChecklist() {
 
       await fetch(API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer mock-token-12345`
+        },
         body: JSON.stringify(payload)
       });
       

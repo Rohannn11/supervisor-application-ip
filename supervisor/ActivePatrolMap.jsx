@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
-import MapView, { Marker, Circle } from 'react-native-maps';
+import MapView, { Marker, Polygon } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -11,33 +11,31 @@ import { Colors } from '../src/theme/colors';
 export default function ActivePatrolMap() {
   const navigation = useNavigation();
   const [location, setLocation] = useState(null);
-  const [siteCenter, setSiteCenter] = useState(null);
+  const [initialLoc, setInitialLoc] = useState(null);
   const [isInsideGeofence, setIsInsideGeofence] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
-
-  // 100 meters radius
-  const GEOFENCE_RADIUS_METERS = 100; 
+  const [polygonPoints, setPolygonPoints] = useState([]);
 
   const CHECKPOINTS = [
     // We will dynamically adjust checkpoints based on siteCenter later, 
     // but for UI mock purposes we'll render some mock checkpoints relative to the center.
   ];
 
-  // Haversine formula to calculate distance between two lat/lng points in meters
-  const getDistanceFromLatLonInMeters = (lat1, lon1, lat2, lon2) => {
-    var R = 6371000; // Radius of the earth in m
-    var dLat = (lat2-lat1) * (Math.PI/180);
-    var dLon = (lon2-lon1) * (Math.PI/180); 
-    var a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * (Math.PI/180)) * Math.cos(lat2 * (Math.PI/180)) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2); 
-    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-    var d = R * c; // Distance in m
-    return d;
+  // Ray-casting algorithm to check if point is inside polygon
+  const isPointInPolygon = (point, vs) => {
+    if (!vs || vs.length < 3) return true; // Not enough points to form a geofence
+    let x = point.longitude, y = point.latitude;
+    let inside = false;
+    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+      let xi = vs[i].longitude, yi = vs[i].latitude;
+      let xj = vs[j].longitude, yj = vs[j].latitude;
+      let intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
   };
 
-  // Mock checkpoints relative to siteCenter for UI
+  // Mock checkpoints (we use initialLoc just to render some mocks nearby)
   const getMockCheckpoints = (center) => {
     if (!center) return [];
     return [
@@ -62,10 +60,10 @@ export default function ActivePatrolMap() {
         longitude: currentLoc.coords.longitude,
       };
       
-      // Set the initial location as the center of our geofence for the POC
-      setSiteCenter(userCoords);
+      // Set initial location map center once
+      setInitialLoc(userCoords);
       setLocation(userCoords);
-      setIsInsideGeofence(true); // Always inside initially since it's the center
+      setIsInsideGeofence(true);
 
       sub = await Location.watchPositionAsync({
         accuracy: Location.Accuracy.High,
@@ -78,28 +76,24 @@ export default function ActivePatrolMap() {
          };
          setLocation(newCoords);
 
-         // Check if still inside the 100m radius
-         const distance = getDistanceFromLatLonInMeters(
-           userCoords.latitude, userCoords.longitude, 
-           newCoords.latitude, newCoords.longitude
-         );
-         
-         const inside = distance <= GEOFENCE_RADIUS_METERS;
-         setIsInsideGeofence(inside);
-         // Only alert if we've actually locked the geofence
-         if (!inside && isLocked) {
-           Alert.alert("Geofence Warning", "You are OUTSIDE the designated 100m patrol site geofence.");
+         // If geofence is locked, verify if user is inside polygon
+         if (isLocked && polygonPoints.length >= 3) {
+           const inside = isPointInPolygon(newCoords, polygonPoints);
+           setIsInsideGeofence(inside);
+           if (!inside) {
+             Alert.alert("Geofence Warning", "You are OUTSIDE the designated patrol boundary.");
+           }
          }
       });
     })();
     return () => { if(sub) sub.remove(); };
-  }, [isLocked, siteCenter]);
+  }, [isLocked, polygonPoints]);
 
-  const checkpointsToRender = getMockCheckpoints(siteCenter);
+  const checkpointsToRender = getMockCheckpoints(initialLoc);
 
-  const handleRegionChangeComplete = (region) => {
+  const handleMapPress = (e) => {
     if (!isLocked) {
-      setSiteCenter({ latitude: region.latitude, longitude: region.longitude });
+      setPolygonPoints([...polygonPoints, e.nativeEvent.coordinate]);
     }
   };
 
@@ -108,35 +102,44 @@ export default function ActivePatrolMap() {
       <GPSStatusBar />
 
       <View style={styles.mapContainer}>
-        {location && siteCenter && (
+        {initialLoc && (
           <MapView
             style={StyleSheet.absoluteFillObject}
             initialRegion={{
-              latitude: siteCenter.latitude,
-              longitude: siteCenter.longitude,
+              latitude: initialLoc.latitude,
+              longitude: initialLoc.longitude,
               latitudeDelta: 0.003,
               longitudeDelta: 0.003,
             }}
             showsUserLocation={false}
-            onRegionChangeComplete={handleRegionChangeComplete}
-            scrollEnabled={!isLocked}
+            onPress={handleMapPress}
           >
-            {/* Geofence Circle (100m) */}
-            <Circle
-              center={siteCenter}
-              radius={GEOFENCE_RADIUS_METERS}
-              fillColor="rgba(255, 0, 0, 0.1)"
-              strokeColor={Colors.danger}
-              strokeWidth={2}
-            />
+            {/* Geofence Polygon */}
+            {polygonPoints.length > 0 && (
+              <Polygon
+                coordinates={polygonPoints}
+                fillColor="rgba(0, 150, 255, 0.2)"
+                strokeColor={Colors.primary}
+                strokeWidth={2}
+              />
+            )}
+            
+            {/* Polygon Boundary Markers */}
+            {!isLocked && polygonPoints.map((pt, i) => (
+              <Marker key={`pt-${i}`} coordinate={pt}>
+                <View style={styles.polygonDot} />
+              </Marker>
+            ))}
 
             {/* Simulated Live User Location */}
-            <Marker coordinate={location}>
-              <View style={styles.currentLocation}>
-                <View style={styles.locationPulse} />
-                <View style={styles.locationDot} />
-              </View>
-            </Marker>
+            {location && (
+              <Marker coordinate={location}>
+                <View style={styles.currentLocation}>
+                  <View style={styles.locationPulse} />
+                  <View style={styles.locationDot} />
+                </View>
+              </Marker>
+            )}
 
             {/* Checkpoints */}
             {checkpointsToRender.map((cp) => (
@@ -186,17 +189,31 @@ export default function ActivePatrolMap() {
 
         {!isLocked && (
           <View style={styles.lockContainer}>
-            <Text style={styles.lockHint}>Drag map to adjust patrol center</Text>
-            <TouchableOpacity 
-              style={styles.lockBtn} 
-              onPress={() => {
-                Alert.alert("Locked", "Patrol boundary locked for this session.");
-                setIsLocked(true);
-              }}
-            >
-              <MaterialIcons name="lock" size={20} color={Colors.textWhite} />
-              <Text style={styles.lockBtnText}>LOCK BOUNDARY</Text>
-            </TouchableOpacity>
+            <Text style={styles.lockHint}>Tap map to draw boundary polygon</Text>
+            <View style={{flexDirection: 'row', gap: 10}}>
+              <TouchableOpacity 
+                style={[styles.lockBtn, {backgroundColor: Colors.danger}]} 
+                onPress={() => setPolygonPoints([])}
+              >
+                <MaterialIcons name="undo" size={20} color={Colors.textWhite} />
+                <Text style={styles.lockBtnText}>CLEAR</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.lockBtn} 
+                onPress={() => {
+                  if (polygonPoints.length < 3) {
+                    Alert.alert("Invalid", "Please tap at least 3 points to form a boundary.");
+                    return;
+                  }
+                  Alert.alert("Locked", "Patrol boundary locked for this session.");
+                  setIsLocked(true);
+                }}
+              >
+                <MaterialIcons name="lock" size={20} color={Colors.textWhite} />
+                <Text style={styles.lockBtnText}>LOCK BOUNDARY</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -287,6 +304,10 @@ const styles = StyleSheet.create({
   locationDot: {
     width: 16, height: 16, borderRadius: 8, backgroundColor: Colors.primary,
     borderWidth: 3, borderColor: Colors.textWhite, elevation: 4,
+  },
+  polygonDot: {
+    width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary,
+    borderWidth: 2, borderColor: Colors.textWhite,
   },
   mapOverlayHeader: {
     position: 'absolute', top: 12, left: 16, right: 16,

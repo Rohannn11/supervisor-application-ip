@@ -56,11 +56,11 @@ app.post('/api/patrol/submit', verifyToken, async (req, res) => {
         const imageRef = response.photoUri ? `img_${Date.now()}_${response.id}` : null;
         
         await pool.execute(
-          'INSERT INTO patrol_logs (user_id, shift_id, checkpoint_name, status, remarks, image_ref) VALUES (?, ?, ?, ?, ?, ?)',
-          [uid, shiftId, response.title, response.status, response.remarks || '', imageRef]
+          'INSERT INTO checklist_responses (user_id, shift_id, question_id, question_text, status, remarks, image_ref) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [uid, shiftId, response.id, response.title, response.status, response.remarks || '', imageRef]
         );
       }
-      console.log('Saved checklist to MySQL patrol_logs.');
+      console.log('Saved checklist to MySQL checklist_responses.');
     }
     
     // TODO: Save any MongoDB specific high-res imagery mappings here later

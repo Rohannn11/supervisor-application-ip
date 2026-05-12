@@ -77,6 +77,20 @@ const initSchema = async (dbPool) => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    await dbPool.execute(`
+      CREATE TABLE IF NOT EXISTS checklist_responses (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id VARCHAR(50),
+        shift_id VARCHAR(50),
+        question_id INT,
+        question_text VARCHAR(255),
+        status VARCHAR(20),
+        remarks TEXT,
+        image_ref VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
     
     console.log('MySQL Schema initialized');
   } catch (error) {
