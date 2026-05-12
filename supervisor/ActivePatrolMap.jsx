@@ -1,5 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
+import MapView, { Marker, Circle } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -8,60 +10,152 @@ import { Colors } from '../src/theme/colors';
 
 export default function ActivePatrolMap() {
   const navigation = useNavigation();
+  const [location, setLocation] = useState(null);
+  const [siteCenter, setSiteCenter] = useState(null);
+  const [isInsideGeofence, setIsInsideGeofence] = useState(true);
+
+  // 100 meters radius
+  const GEOFENCE_RADIUS_METERS = 100; 
+
+  const CHECKPOINTS = [
+    // We will dynamically adjust checkpoints based on siteCenter later, 
+    // but for UI mock purposes we'll render some mock checkpoints relative to the center.
+  ];
+
+  // Haversine formula to calculate distance between two lat/lng points in meters
+  const getDistanceFromLatLonInMeters = (lat1, lon1, lat2, lon2) => {
+    var R = 6371000; // Radius of the earth in m
+    var dLat = (lat2-lat1) * (Math.PI/180);
+    var dLon = (lon2-lon1) * (Math.PI/180); 
+    var a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * (Math.PI/180)) * Math.cos(lat2 * (Math.PI/180)) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2); 
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    var d = R * c; // Distance in m
+    return d;
+  };
+
+  // Mock checkpoints relative to siteCenter for UI
+  const getMockCheckpoints = (center) => {
+    if (!center) return [];
+    return [
+      { id: 1, title: 'Main Gate', coordinate: { latitude: center.latitude + 0.0005, longitude: center.longitude + 0.0005 }, done: true },
+      { id: 2, title: 'Parking B', coordinate: { latitude: center.latitude - 0.0004, longitude: center.longitude - 0.0003 }, done: true },
+      { id: 3, title: 'Generator Room', coordinate: { latitude: center.latitude - 0.0006, longitude: center.longitude + 0.0002 }, done: false, target: true },
+    ];
+  };
+
+  useEffect(() => {
+    let sub;
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Allow location access to use patrol mapping.');
+        return;
+      }
+
+      let currentLoc = await Location.getCurrentPositionAsync({});
+      const userCoords = {
+        latitude: currentLoc.coords.latitude,
+        longitude: currentLoc.coords.longitude,
+      };
+      
+      // Set the initial location as the center of our geofence for the POC
+      setSiteCenter(userCoords);
+      setLocation(userCoords);
+      setIsInsideGeofence(true); // Always inside initially since it's the center
+
+      sub = await Location.watchPositionAsync({
+        accuracy: Location.Accuracy.High,
+        timeInterval: 2000,
+        distanceInterval: 1,
+      }, (newLoc) => {
+         const newCoords = {
+           latitude: newLoc.coords.latitude,
+           longitude: newLoc.coords.longitude
+         };
+         setLocation(newCoords);
+
+         // Check if still inside the 100m radius
+         const distance = getDistanceFromLatLonInMeters(
+           userCoords.latitude, userCoords.longitude, 
+           newCoords.latitude, newCoords.longitude
+         );
+         
+         const inside = distance <= GEOFENCE_RADIUS_METERS;
+         setIsInsideGeofence(inside);
+         if (!inside) {
+           Alert.alert("Geofence Warning", "You are OUTSIDE the designated 100m patrol site geofence.");
+         }
+      });
+    })();
+    return () => { if(sub) sub.remove(); };
+  }, []);
+
+  const checkpointsToRender = getMockCheckpoints(siteCenter);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <GPSStatusBar />
 
       <View style={styles.mapContainer}>
-        {/* Mock Map Background */}
-        <Image
-          source={{ uri: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800&q=80' }}
-          style={[StyleSheet.absoluteFillObject, { opacity: 0.9, backgroundColor: '#e8e4d8' }]}
-          resizeMode="cover"
-        />
-        <View style={styles.mapBg}>
-          {/* Boundary Rectangle */}
-          <View style={styles.boundaryBox}>
-            <Text style={styles.boundaryLabel}>BOUNDARY LIMIT</Text>
+        {location && siteCenter && (
+          <MapView
+            style={StyleSheet.absoluteFillObject}
+            initialRegion={{
+              latitude: siteCenter.latitude,
+              longitude: siteCenter.longitude,
+              latitudeDelta: 0.003, // Zoomed in
+              longitudeDelta: 0.003,
+            }}
+            showsUserLocation={false} 
+          >
+            {/* Geofence Circle (100m) */}
+            <Circle
+              center={siteCenter}
+              radius={GEOFENCE_RADIUS_METERS}
+              fillColor="rgba(255, 0, 0, 0.1)"
+              strokeColor={Colors.danger}
+              strokeWidth={2}
+            />
 
-            {/* Checkpoint: Main Gate */}
-            <View style={[styles.checkpoint, { top: 30, left: 20 }]}>
-              <View style={styles.checkpointDone}>
-                <MaterialIcons name="check" size={16} color={Colors.textWhite} />
+            {/* Simulated Live User Location */}
+            <Marker coordinate={location}>
+              <View style={styles.currentLocation}>
+                <View style={styles.locationPulse} />
+                <View style={styles.locationDot} />
               </View>
-              <Text style={styles.checkpointLabel}>Main Gate</Text>
-            </View>
+            </Marker>
 
-            {/* Checkpoint: Parking B */}
-            <View style={[styles.checkpoint, { top: 80, right: 20 }]}>
-              <View style={styles.checkpointDone}>
-                <MaterialIcons name="check" size={16} color={Colors.textWhite} />
-              </View>
-              <Text style={styles.checkpointLabel}>Parking B</Text>
-            </View>
-
-            {/* Current Location */}
-            <View style={[styles.currentLocation, { top: '45%', left: '40%' }]}>
-              <View style={styles.locationPulse} />
-              <View style={styles.locationDot} />
-              <View style={styles.locationArrow}>
-                <MaterialIcons name="navigation" size={24} color={Colors.textLight} />
-              </View>
-            </View>
-
-            {/* Target Checkpoint */}
-            <View style={[styles.checkpoint, { bottom: 40, left: '35%' }]}>
-              <View style={styles.checkpointTarget}>
-                <MaterialIcons name="location-on" size={24} color={Colors.textWhite} />
-              </View>
-              <Text style={[styles.checkpointLabel, { color: Colors.danger }]}>Generator Room</Text>
-              <View style={styles.targetBadge}>
-                <Text style={styles.targetBadgeText}>Target</Text>
-              </View>
-            </View>
-          </View>
-        </View>
+            {/* Checkpoints */}
+            {checkpointsToRender.map((cp) => (
+              <Marker key={cp.id} coordinate={cp.coordinate}>
+                <View style={styles.checkpoint}>
+                  {cp.done ? (
+                    <View style={styles.checkpointDone}>
+                      <MaterialIcons name="check" size={16} color={Colors.textWhite} />
+                    </View>
+                  ) : cp.target ? (
+                    <View style={styles.checkpointTarget}>
+                      <MaterialIcons name="location-on" size={24} color={Colors.textWhite} />
+                    </View>
+                  ) : (
+                    <View style={[styles.checkpointDone, { backgroundColor: Colors.borderMuted }]}>
+                      <MaterialIcons name="location-on" size={16} color={Colors.textWhite} />
+                    </View>
+                  )}
+                  <Text style={[styles.checkpointLabel, cp.target && { color: Colors.danger }]}>{cp.title}</Text>
+                  {cp.target && (
+                    <View style={styles.targetBadge}>
+                      <Text style={styles.targetBadgeText}>Target</Text>
+                    </View>
+                  )}
+                </View>
+              </Marker>
+            ))}
+          </MapView>
+        )}
 
         {/* Header Overlay */}
         <View style={styles.mapOverlayHeader}>
@@ -139,18 +233,7 @@ export default function ActivePatrolMap() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.textPrimary },
   mapContainer: { flex: 1, position: 'relative' },
-  mapBg: {
-    flex: 1, backgroundColor: 'transparent',
-    // Gradient-like feel for map
-  },
-  boundaryBox: {
-    position: 'absolute', top: 100, left: 30, right: 30, bottom: 180,
-    borderWidth: 2, borderColor: Colors.danger, borderStyle: 'dashed',
-    borderRadius: 8, padding: 12,
-  },
-  boundaryLabel: {
-    fontSize: 11, fontWeight: '800', color: Colors.danger, letterSpacing: 1,
-  },
+  mapBg: { flex: 1, backgroundColor: 'transparent' },
   checkpoint: { position: 'absolute', alignItems: 'center' },
   checkpointDone: {
     width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.success,
@@ -177,9 +260,8 @@ const styles = StyleSheet.create({
   },
   locationDot: {
     width: 16, height: 16, borderRadius: 8, backgroundColor: Colors.primary,
-    borderWidth: 3, borderColor: Colors.textWhite, elevation: 4, marginTop: 12,
+    borderWidth: 3, borderColor: Colors.textWhite, elevation: 4,
   },
-  locationArrow: { marginTop: -28 },
   mapOverlayHeader: {
     position: 'absolute', top: 12, left: 16, right: 16,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

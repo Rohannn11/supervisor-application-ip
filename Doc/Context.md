@@ -1,603 +1,115 @@
-# Patrol & Incident Based Reporting System — Implementation Summary for Development Agent
-
-## 1. Project Overview
-
-This project is a real-time patrol monitoring and incident reporting platform designed for security operations and field activity management.
-
-The system consists of:
-
-* Mobile applications for field personnel and supervisors
-* Web dashboard for monitoring and administration
-* Real-time reporting and evidence collection
-* GPS-enabled patrol tracking
-* Checklist-based operational workflows
-* Multi-role access management
-* Multi-language support
-
-The core objective of the platform is:
-
-> To monitor, control, and document field activities in real time while ensuring accountability, discipline, transparency, and operational efficiency.
-
----
-
-# 2. Main Functional Modules
-
-## 2.1 Mobile App (Field Operations)
-
-The mobile application is the primary operational interface used by field officers and supervisors.
-
-### Core Features
-
-#### A. Patrolling Checklist
-
-A structured checklist used during patrol rounds.
-
-Requirements:
-
-* Multiple predefined questions
-* Each question can have:
-
-  * Yes/No response
-  * Incident entry
-  * Observation entry
-  * Upload support
-* Swipe-to-confirm interaction
-* Interactive UI feedback for Yes/No selection
-* Checklist completion workflow
-
-Purpose:
-
-* Ensure guards/officers follow patrol SOPs
-* Capture operational compliance
-* Record field activity systematically
-
----
-
-#### B. Occurrence Checklist
-
-Used to log incidents or occurrences during a shift.
-
-Requirements:
-
-* Unlimited occurrence entries
-* Automatic sequential numbering
-* Dedicated text/narrative input per occurrence
-* Multi-upload support
-* Evidence attachment support
-
-Purpose:
-
-* Log operational incidents
-* Maintain chronological event tracking
-* Attach proof and supporting evidence
-
----
-
-#### C. Real-Time GPS Tracking
-
-The application must support live location monitoring.
-
-Requirements:
-
-* Real-time officer tracking
-* Patrol route monitoring
-* Geofencing support
-* Verification of designated patrol zones
-* Live field visibility
-
-Purpose:
-
-* Monitor patrol compliance
-* Improve accountability
-* Enable centralized operational oversight
-
----
-
-#### D. Checkpoint Verification
-
-System should verify physical presence at checkpoints.
-
-Supported verification methods:
-
-* NFC tagging
-* QR code scanning
-* GPS-based tagging
-
-Purpose:
-
-* Confirm physical patrol completion
-* Prevent fake attendance/patrol marking
-
----
-
-#### E. Incident Reporting System
-
-Users can report incidents directly from the field.
-
-Requirements:
-
-* Upload:
-
-  * Photos
-  * Videos
-  * Documents
-  * Voice notes
-* Real-time submission to command center
-* Evidence management
-* Compression optimization
-
-Upload Constraints:
-
-* Single file max size: 5 MB
-* Combined upload limit: 25 MB
-* Automatic compression required
-
-Purpose:
-
-* Fast incident escalation
-* Digital evidence collection
-* Centralized documentation
-
----
-
-#### F. SOS / Emergency Alert System
-
-Emergency support functionality.
-
-Requirements:
-
-* One-tap panic/SOS button
-* Instant alert notification to command center
-* Real-time emergency escalation
-
-Purpose:
-
-* Rapid response handling
-* Officer safety
-* Crisis management
-
----
-
-# 3. Web Dashboard (Centralized Oversight)
-
-The web dashboard acts as the command center for monitoring and administration.
-
-## Core Features
-
-### A. Live Command Center
-
-Requirements:
-
-* Live view of active patrols
-* Officer status monitoring
-* Site coverage visibility
-* Operational tracking dashboard
-
-Purpose:
-
-* Centralized monitoring
-* Real-time operational awareness
-
----
-
-### B. Client Reporting
-
-Requirements:
-
-* Generate activity logs
-* Compliance report generation
-* Scheduled reporting
-* One-click export/reporting system
-
-Purpose:
-
-* Client transparency
-* Audit-ready reporting
-* Operational documentation
-
----
-
-### C. Performance Analytics
-
-Requirements:
-
-* Track punctuality
-* Route completion analysis
-* Response time analytics
-* Operational KPI measurement
-
-Purpose:
-
-* Performance evaluation
-* Operational optimization
-* Data-driven decisions
-
----
-
-### D. Centralized Dispatch
-
-Requirements:
-
-* Remote task assignment
-* Shift scheduling
-* Real-time field availability mapping
-
-Purpose:
-
-* Workforce coordination
-* Dynamic operational management
-
----
-
-# 4. User Roles & Access Levels
-
-The system supports multiple user roles with different permissions.
-
-## A. Supervisor
-
-Platform Access:
-
-* Mobile App
-
-Responsibilities:
-
-* Monitor field officers
-* Review patrol activities
-* Verify incidents
-* Operational oversight
-
----
-
-## B. Field Officer
-
-Platform Access:
-
-* Mobile App
-* Web App
-
-Responsibilities:
-
-* Perform patrols
-* Complete checklists
-* Report incidents
-* Upload evidence
-* Use GPS tracking
-
----
-
-## C. Client
-
-Platform Access:
-
-* Mobile App
-* Web App
-* Read-only access
-
-Responsibilities:
-
-* Monitor reports
-* Review operational logs
-* Track compliance
-
----
-
-## D. Admin
-
-Platform Access:
-
-* Mobile App
-* Web App
-
-Responsibilities:
-
-* Manage operations
-* Manage users
-* Monitor reports
-* Configure system settings
-
----
-
-## E. Super Admin
-
-Platform Access:
-
-* Web App only
-
-Responsibilities:
-
-* Full system administration
-* Global configuration
-* Permission management
-* Platform-wide control
-
----
-
-# 5. Checklist Functional Requirements
-
-## Patrolling Checklist Requirements
-
-Each checklist question may contain:
-
-* Yes/No response
-* Incident entry section
-* Observation section
-* Upload attachments
-
-UI Requirements:
-
-* Swipe confirmation
-* Interactive selection states
-* Animated Yes/No response feedback
-
-Validation Rules:
-
-* Upload validation
-* File size validation
-* Mandatory completion checks
-
----
-
-## Occurrence Checklist Requirements
-
-Requirements:
-
-* Unlimited occurrence creation
-* Auto-numbering
-* Text description field
-* Multi-file uploads
-* Evidence support
-
-Validation Rules:
-
-* 5 MB per file limit
-* 25 MB combined upload limit
-* Compression optimization
-
----
-
-# 6. File Upload & Media Handling Requirements
-
-## Supported Media Types
-
-* Images
-* Videos
-* Documents
-* Voice notes
-
-## Upload Rules
-
-### Individual File Limit
-
-* Maximum 5 MB per file
-
-### Combined Upload Limit
-
-* Maximum 25 MB total
-
-### Compression
-
-Automatic compression required for:
-
-* Images
-* Videos
-* Documents
-
-Purpose:
-
-* Reduce bandwidth
-* Improve upload speed
-* Optimize storage
-
----
-
-# 7. Multi-Language & Localization Requirements
-
-The platform must support regional localization and multilingual usage.
-
-## Required Languages
-
-* English
-* Hindi
-* Marathi
-* Tamil
-* Telugu
-* Kannada
-* Bengali
-* Odia
-
-## Localization Features
-
-### A. Dynamic Localization Engine
-
-Requirements:
-
-* Translate UI dynamically
-* Translate checklist content
-* Adapt based on selected language
-
----
-
-### B. Language Toggle
-
-Requirements:
-
-* Language selector on mobile home screen
-* Easy switching between languages
-
----
-
-### C. Voice-Over Support
-
-Requirements:
-
-* Audio instructions in local languages
-* Support less tech-savvy users
-
----
-
-### D. Unicode Compatibility
-
-Requirements:
-
-* Correct rendering of Indian scripts
-* Cross-device compatibility
-
----
-
-### E. Regional Date/Time Formatting
-
-Requirements:
-
-* Region-specific date formats
-* Localized time formatting
-
----
-
-# 8. Technical Expectations
-
-## Expected System Characteristics
-
-The implementation should prioritize:
-
-* Real-time synchronization
-* Mobile-first usability
-* Scalable architecture
-* Secure media uploads
-* Efficient storage handling
-* Offline resilience (recommended)
-* GPS reliability
-* Fast reporting workflows
-
----
-
-# 9. Suggested High-Level Architecture
-
-## Frontend
-
-### Mobile App
-
-Possible Stack:
-
-* Flutter
-* React Native
-* Native Android/iOS
-
-### Web Dashboard
-
-Possible Stack:
-
-* React
-* Angular
-* Vue
-
----
-
-## Backend
-
-Possible Responsibilities:
-
-* Authentication
-* Role management
-* GPS tracking
-* File uploads
-* Incident storage
-* Reporting engine
-* Notification system
-* Analytics
-
-Possible Stack:
-
-* Node.js
-* Django
-* Spring Boot
-* .NET
-
----
-
-## Database
-
-Possible Requirements:
-
-* User management
-* Checklist storage
-* Incident records
-* GPS logs
-* Media metadata
-* Analytics data
-
-Possible Options:
-
-* PostgreSQL
-* MySQL
-* MongoDB
-
----
-
-## Cloud & Storage
-
-Requirements:
-
-* Media storage
-* Compression pipeline
-* Secure access
-* Scalable upload handling
-
-Possible Options:
-
-* AWS S3
-* Firebase Storage
-* Azure Blob Storage
-
----
-
-# 10. Core Business Workflow
-
-## Patrol Workflow
-
-1. Officer logs into mobile app
-2. Patrol begins
-3. GPS tracking starts
-4. Officer reaches checkpoints
-5. Verification done using NFC/QR/GPS
-6. Checklist questions completed
-7. Incidents/observations added if necessary
-8. Evidence uploaded
-9. Checklist submitted
-10. Dashboard receives live updates
-11. Reports generated for admin/client
-
----
-
-# 11. Important Functional Priorities
-
-The most critical implementation areas are:
-
-1. Patrol checklist workflow
-2. Occurrence/incident reporting
-4. File upload and compression
-5. Role-based access control
-6. Dashboard monitoring
-8. Reporting and analytics
-9. Emergency SOS system
-10. Checkpoint verification
-3. Real-time GPS tracking
----
-
-# 12. Final Development Understanding
-
-This is essentially a:
-
-> Security patrol management and incident reporting ecosystem.
-
-The platform combines:
-
-* Field operations management
-* Patrol verification
-* Incident documentation
-* Live tracking
-* Evidence collection
-* Operational analytics
-* Client transparency
-* Multi-role administration
-
-The system must operate in real time while remaining simple enough for field officers to use efficiently during active patrol duties.
+1. Role of the Supervisor
+The Supervisor is the frontline operational user who physically performs patrolling duties at client sites.
+He is the primary data collector and reporter of the entire system. Every checkpoint visit, checklist response, incident photo, occurrence log, and SOS alert originates from his mobile app.
+He does not manage teams, approve reports, or view analytics, his job is to execute patrols accurately, capture real-time evidence, and ensure personal safety. All his actions are GPS-verified, server-timestamped (UTC), and anti-spoof protected, automatically flowing upward for review.
+Position in Hierarchy:
+Guard → Supervisor → Field Officer → Area Manager → Director
+Client → Admin
+________________________________________
+2. Application Access & Features
+Application: Mobile App ONLY (Android, offline-first)
+No Web Access – Everything happens inside one simple mobile app.
+Features Available to Supervisor (100% of his scope):
+Category	Key Features
+Authentication	Live photo + liveness check, IMEI device binding, OTP login/ Approval based login , auto-logout
+Home/Dashboard	Today’s shift card, language switcher, GPS status, quick action tiles
+Real-Time Tracking	Live map with blue dot, geofencing, checkpoint pinning, breadcrumb trail
+Checkpoint Tagging	NFC / QR Code / GPS-based physical verification
+Patrolling Checklist	Dynamic yes/no/NA questions, conditional “No” → remark + single upload
+Incidents & Observations	Separate sections at checklist end with multi-upload (photo/video/doc)
+Occurrence Checklist	Unlimited numbered entries (Occurrence 1, 2, 3…) with text + multi-upload
+Safety	Persistent floating red SOS button (long-press), live GPS streaming
+Reporting	View Own past patrol reports only (PDF)
+Usability	Full 8-language support (English/Hindi/Marathi + others), voice-over, speech-to-text, offline mode + auto-sync
+Strict Constraints:
+●	Limits on the uploading constraints ensuring homogeneity.
+●	Auto-compression
+●	All data immutable & audit-logged
+Restricted Areas: No access to masters, analytics, client reports, SOS console, user management, or approval workflows.
+________________________________________
+3. How the Supervisor Will Use the Application
+The app is designed like a simple tool , not a complex software.
+●	One-tap actions
+●	Icon-first + large buttons (48dp minimum)
+●	Language switcher always visible (top-right) , entire app changes instantly to Hindi/Marathi
+●	Persistent red SOS button on every screen or hovers dynamically.
+●	Works fully offline (auto-syncs when back online)
+________________________________________
+4. Core Responsibilities
+1.	Physically visit every assigned checkpoint and prove presence (NFC/QR/GPS).
+2.	Accurately complete the Patrolling Checklist during the shift.
+3.	Capture evidence for any “No” answer, incident, or observation.
+4.	Log unlimited separate occurrences with supporting media.
+5.	Trigger SOS instantly in any emergency.
+6.	Submit complete report at end of shift.
+7.	Maintain personal safety and device health (low-battery alerts).
+________________________________________
+
+5. Daily Tasks the Supervisor Must Undergo
+1.	Morning login (photo + Approval).
+2.	View assigned patrol on Home screen.
+3.	Tap “Start Patrol” (geofence must be active).
+4.	Follow live map and tag checkpoints.
+5.	Fill Patrolling Checklist question-by-question.
+6.	Scroll down and fill Incidents + Observations if required.
+7.	Switch to Occurrence Checklist and add any extra events.
+8.	Press SOS if any threat arises.
+9.	Swipe to Submit at end of shift.
+10.	End-of-day check “My Reports” for status.
+________________________________________
+6. Complete Workflow (Step-by-Step)
+Start of Shift
+Login → Home → “Start Patrol” (geofence check) → Live Map
+During Patrol
+Navigate → Tag checkpoint → Open Patrolling Checklist
+→ Answer questions (Yes/No/NA)
+→ On “No”: Remark + voice + upload opens automatically
+→ Scroll to bottom → Incidents & Observations (multi-upload)
+Extra Events
+Switch to Occurrence Checklist → + Add New (auto-numbered) → text + multi-upload
+Emergency
+Long-press floating SOS → red screen activates → live GPS shared instantly
+End of Shift
+Submit → Success animation → “Report Sent to Area Manager” → auto-routed
+Post-Shift
+My Reports → view status (Approved / Pending / Sent Back)
+________________________________________
+
+
+7. Data Flow (System Perspective)
+1.	Supervisor submits checklist + media + GPS proof
+2.	Report instantly saved with server UTC timestamp
+3.	Auto-routed to Area Manager for review (4-hour SLA)
+4.	Area Manager can approve or “Send Back” with comments
+5.	If approved → forwarded to Client as white-labeled PDF
+6.	All actions logged in immutable audit trail
+7.	EOD automated summary email sent to stakeholders (Supervisor receives own copy only)
+Critical Path: SOS → immediate push/SMS/email to Admin + Area Manager + Site Manager + live map zoom.
+________________________________________
+8. User Stories 
+Epic:
+As a Supervisor, I want a simple, voice-enabled, offline-first mobile app so that I can complete my entire patrol shift safely and accurately even if I have low literacy or limited smartphone experience.
+Detailed User Stories:
+1.	As a Supervisor, I want to login with a live photo and OTP so that only verified guards can access the app.
+2.	As a Supervisor, I want to see my today’s shift in Hindi/Marathi with a big “START PATROL” button so that I know exactly what to do.
+3.	As a Supervisor, I want the “Start Patrol” button to activate only inside the geofence so that I cannot fake my location.
+4.	As a Supervisor, I want to answer checklist questions with giant coloured buttons ( Yes / No / NA) so that I can finish quickly.
+5.	As a Supervisor, I want the “No” button to automatically open remark + photo upload so that I can explain problems easily.
+6.	As a Supervisor, I want separate Incidents and Observations sections at the end with multi-upload so that I can report extra issues.
+7.	As a Supervisor, I want to add unlimited numbered Occurrences with voice and photos so that every unusual event is recorded.
+8.	As a Supervisor, I want a persistent red SOS button that works with one long-press so that help reaches me instantly.
+9.	As a Supervisor, I want to swipe to submit so that my report automatically goes to my Area Manager.
+10.	As a Supervisor, I want the entire app to switch to Hindi or Marathi instantly and read questions aloud so that I never feel stuck.
+11.	As a Supervisor working in low-network areas, I want full offline mode with auto-sync so that I never lose data.
+Supervisor Story
+Ravi, a dedicated supervisor in Pune, starts his night shift at 8 PM. He opens the mobile app on his Android phone, which is already bound to his device IMEI for security. After entering his Employee ID and mobile number, an OTP arrives via SMS, and he uploads a live selfie— the app verifies it's him with liveness detection, matching it against his HR photo.
+Once logged in, Ravi taps the language selector on the home screen, switching to Marathi for ease. The app auto-selects his current shift from the master data, showing his assigned site: a large IT campus in Hinjewadi.
+
+Case 1 : - 
+With the persistent floating SOS button glowing red in the corner (set to long-press activation to avoid accidents), Ravi heads out. The real-time GPS kicks in, drawing a geofence around the campus— he can't access checklists until he's within 50 meters, ensuring no remote faking. His task list pops up: a site-specific Patrolling Checklist allocated via the admin's bulk mapping. It includes questions like "Are all fire exits clear?" with Yes/No/NA buttons, weighted risk points, and optional remarks via voice-to-text.
+
+Case 2 :-
+Mid-patrol, Ravi feels uneasy near a dimly lit area— he double-taps the SOS button. It vibrates confirmation, then streams his GPS every 30 seconds to the command center. Alerts blast via push, SMS, and email to his area manager and admin. The web dashboard auto-zooms to his blinking red icon. His supervisor resolves it quickly (a false alarm from shadows), marking the Safety Ticket as Closed with a resolution report upload. 
+
+Case 3 :- 
+By shift end, Ravi submits the full checklist— server-stamped to prevent tampering. It auto-routes via workflow to his area manager for review

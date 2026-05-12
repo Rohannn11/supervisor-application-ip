@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, ActivityIndicator, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../src/context/AuthContext';
@@ -11,8 +12,28 @@ export default function SupervisorLogin() {
   const { language, setLanguage, languages } = useAppContext();
   const [employeeId, setEmployeeId] = useState('');
   const [photoTaken, setPhotoTaken] = useState(false);
+  const [photoUri, setPhotoUri] = useState(null);
   const [showOTP, setShowOTP] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const otpRefs = useRef([]);
+
+  const takeSelfie = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Camera permission is required for liveness check');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      cameraType: ImagePicker.CameraType.front,
+      quality: 0.5,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setPhotoUri(result.assets[0].uri);
+      setPhotoTaken(true);
+    }
+  };
 
   const handleContinueWithOTP = () => {
     if (!employeeId.trim()) {
@@ -31,10 +52,26 @@ export default function SupervisorLogin() {
     await login(employeeId, fullOtp);
   };
 
+  const handleEmployeeIdChange = (text) => {
+    // Strip special characters
+    setEmployeeId(text.replace(/[^a-zA-Z0-9]/g, ''));
+  };
+
   const handleOtpChange = (value, index) => {
+    const cleanValue = value.replace(/[^0-9]/g, '');
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = cleanValue;
     setOtp(newOtp);
+
+    if (cleanValue && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyPress = (e, index) => {
+    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
   };
 
   return (
@@ -72,17 +109,18 @@ export default function SupervisorLogin() {
               <MaterialIcons name="badge" size={24} color={Colors.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Employee ID or Mobile"
+                placeholder="Employee ID or Mobile (Alphanumeric)"
                 placeholderTextColor={Colors.textMuted}
                 value={employeeId}
-                onChangeText={setEmployeeId}
+                onChangeText={handleEmployeeIdChange}
+                autoCapitalize="characters"
               />
             </View>
           </View>
 
           <TouchableOpacity
             style={[styles.livenessButton, photoTaken && styles.livenessButtonDone]}
-            onPress={() => setPhotoTaken(!photoTaken)}
+            onPress={takeSelfie}
           >
             {!photoTaken && (
               <View style={styles.requiredBadge}>
@@ -91,7 +129,11 @@ export default function SupervisorLogin() {
             )}
             {photoTaken ? (
               <>
-                <MaterialIcons name="check-circle" size={40} color={Colors.success} />
+                {photoUri ? (
+                  <Image source={{ uri: photoUri }} style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 8 }} />
+                ) : (
+                  <MaterialIcons name="check-circle" size={40} color={Colors.success} />
+                )}
                 <Text style={[styles.livenessTitle, { color: Colors.success }]}>Photo Captured</Text>
                 <Text style={styles.livenessSubtitle}>Tap to retake</Text>
               </>
@@ -188,11 +230,13 @@ export default function SupervisorLogin() {
               {otp.map((digit, index) => (
                 <TextInput
                   key={index}
+                  ref={(ref) => (otpRefs.current[index] = ref)}
                   style={[styles.otpInput, digit ? styles.otpInputFilled : null]}
                   maxLength={1}
                   keyboardType="number-pad"
                   value={digit}
                   onChangeText={(value) => handleOtpChange(value, index)}
+                  onKeyPress={(e) => handleOtpKeyPress(e, index)}
                 />
               ))}
             </View>

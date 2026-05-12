@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Platform } from 'react-native';
+import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -20,6 +22,15 @@ function RootNavigator() {
 }
 
 export default function App() {
+  useEffect(() => {
+    (async () => {
+      // Request all permissions upfront
+      await Location.requestForegroundPermissionsAsync();
+      await ImagePicker.requestCameraPermissionsAsync();
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    })();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AuthProvider>

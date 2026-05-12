@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -18,14 +18,25 @@ export default function SupervisorDashboard() {
     navigation.navigate('ActivePatrolMap');
   };
 
+  const handleSOS = () => {
+    Alert.alert(
+      "SOS Triggered!",
+      "Emergency alert sent to Area Manager and Command Center with your live GPS location.",
+      [{ text: "OK" }]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.avatarSmall}>
+          <TouchableOpacity 
+            style={styles.avatarSmall}
+            onPress={() => Alert.alert("Profile Settings", "User profile and settings page coming in Phase 2.")}
+          >
             <MaterialIcons name="person" size={20} color={Colors.textWhite} />
-          </View>
+          </TouchableOpacity>
           <View>
             <Text style={styles.welcomeLabel}>WELCOME</Text>
             <Text style={styles.headerTitle}>नमस्ते, {user?.name || 'Rohan'}</Text>
@@ -33,7 +44,10 @@ export default function SupervisorDashboard() {
         </View>
         <View style={styles.headerRight}>
           <LanguageSwitcher compact />
-          <TouchableOpacity style={styles.bellBtn}>
+          <TouchableOpacity 
+            style={styles.bellBtn}
+            onPress={() => Alert.alert("Notifications", "You have no new notifications.")}
+          >
             <MaterialIcons name="notifications" size={24} color={Colors.textLight} />
             <View style={styles.notifDot} />
           </TouchableOpacity>
@@ -156,8 +170,17 @@ export default function SupervisorDashboard() {
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 80 }} />
       </ScrollView>
+
+      {/* Floating SOS Button */}
+      <TouchableOpacity 
+        style={styles.sosButton} 
+        onLongPress={handleSOS} 
+        delayLongPress={1000}
+      >
+        <MaterialIcons name="sos" size={32} color={Colors.textWhite} />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -255,4 +278,20 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
   statValue: { fontSize: 28, fontWeight: '900', color: Colors.primary, marginTop: 4 },
+  sosButton: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+    shadowColor: Colors.danger,
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
 });

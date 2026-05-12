@@ -35,20 +35,19 @@ export default function ReportSubmissionSuccess() {
       useNativeDriver: false,
     }).start();
 
-    // Countdown + auto-redirect
+    // Countdown
     const timer = setInterval(() => {
-      setRedirectCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          navigation.navigate('HomeTab', { screen: 'SupervisorDashboard' });
-          return 0;
-        }
-        return prev - 1;
-      });
+      setRedirectCountdown(prev => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
 
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (redirectCountdown === 0) {
+      navigation.navigate('HomeTab', { screen: 'SupervisorDashboard' });
+    }
+  }, [redirectCountdown, navigation]);
 
   const progressWidth = progressAnim.interpolate({
     inputRange: [0, 1],
