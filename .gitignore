@@ -40,4 +40,6 @@ yarn-error.*
 /ios
 /android
 
+src/config/firebase.js
+
 .agents/

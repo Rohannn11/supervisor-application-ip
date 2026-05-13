@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
   Modal, ActivityIndicator, KeyboardAvoidingView, Platform, Alert
@@ -11,90 +11,148 @@ import { useAppContext } from '../src/context/AppContext';
 import { app } from '../src/config/firebase';
 import { Colors } from '../src/theme/colors';
 
+// Backend URL – same as the rest of the app
+const API_BASE = 'http://192.168.1.6:3000';
+
 export default function SupervisorLogin() {
   const { sendOTP, confirmOTP, isLoading } = useAuth();
   const { language, setLanguage, languages } = useAppContext();
 
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
+  const [resolvedPhone, setResolvedPhone] = useState('');
   const [showOTP, setShowOTP] = useState(false);
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otpValue, setOtpValue] = useState('');   // single string, max 6 chars
   const [otpError, setOtpError] = useState('');
   const [isSending, setIsSending] = useState(false);
 
-  const otpRefs = useRef([]);
+  const hiddenInputRef = useRef(null);
   const recaptchaVerifier = useRef(null);
 
-  const handlePhoneChange = (text) => {
-    // Allow +, digits, spaces
-    setPhoneNumber(text.replace(/[^+0-9 ]/g, ''));
-  };
-
-  const handleSendOTP = async () => {
-    const trimmed = phoneNumber.trim();
-    if (!trimmed || trimmed.length < 10) {
-      Alert.alert('Invalid', 'Please enter a valid phone number with country code (e.g. +91XXXXXXXXXX)');
+  // ── Step 1: resolve employee ID → phone number from backend ──────────────
+  const handleSendOTP = useCallback(async () => {
+    const trimmed = employeeId.trim().toUpperCase();
+    if (!trimmed) {
+      Alert.alert('Required', 'Please enter your Employee ID.');
       return;
     }
     setIsSending(true);
-    const result = await sendOTP(trimmed, recaptchaVerifier.current);
-    setIsSending(false);
-    if (result.success) {
-      setShowOTP(true);
-    } else {
-      Alert.alert('OTP Failed', result.error || 'Could not send OTP. Check the number and try again.');
-    }
-  };
+    try {
+      // Ask backend for the phone number linked to this employee ID
+      let phone = null;
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/resolve-employee`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employeeId: trimmed }),
+        });
+        const data = await res.json();
+        if (res.ok && data.phone) {
+          phone = data.phone; // e.g. "+919876543210"
+        }
+      } catch (netErr) {
+        console.warn('[Login] Backend unavailable, using hardcoded test map for POC.');
+      }
 
-  const handleOtpChange = (value, index) => {
-    const clean = value.replace(/[^0-9]/g, '');
-    const newOtp = [...otp];
-    newOtp[index] = clean;
-    setOtp(newOtp);
+      // ── POC FALLBACK: if backend is down, use test numbers ───────────────
+      if (!phone) {
+        const testMap = { 'RJ123': '+919999999999' }; // matches Firebase test number
+        phone = testMap[trimmed] || null;
+      }
+
+      if (!phone) {
+        Alert.alert('Not Found', `Employee ID "${trimmed}" is not registered. Please contact your admin.`);
+        setIsSending(false);
+        return;
+      }
+
+      setResolvedPhone(phone);
+      const result = await sendOTP(phone, recaptchaVerifier.current);
+      if (result.success) {
+        setOtpValue('');
+        setOtpError('');
+        setShowOTP(true);
+      } else {
+        Alert.alert('OTP Failed', result.error || 'Could not send OTP. Try again.');
+      }
+    } catch (e) {
+      Alert.alert('Error', e.message || 'Something went wrong.');
+    } finally {
+      setIsSending(false);
+    }
+  }, [employeeId, sendOTP]);
+
+  // ── OTP input: single hidden TextInput drives 6 display boxes ───────────
+  const handleOtpChange = (val) => {
+    const clean = val.replace(/[^0-9]/g, '').slice(0, 6);
+    setOtpValue(clean);
     setOtpError('');
-    if (clean && index < 5) {
-      otpRefs.current[index + 1]?.focus();
-    }
   };
 
-  const handleOtpKeyPress = (e, index) => {
-    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus();
-    }
-  };
-
-  // Force first box focus when modal opens
-  const handleModalOpen = () => {
-    setTimeout(() => otpRefs.current[0]?.focus(), 300);
-  };
+  const focusHidden = () => hiddenInputRef.current?.focus();
 
   const handleVerifyOTP = async () => {
-    const code = otp.join('');
-    if (code.length !== 6) {
+    if (otpValue.length !== 6) {
       setOtpError('Please enter all 6 digits.');
       return;
     }
-    const result = await confirmOTP(code);
+    const result = await confirmOTP(otpValue);
     if (!result.success) {
       setOtpError(result.error || 'Invalid OTP. Try again.');
     }
   };
 
   const handleResend = async () => {
-    setOtp(['', '', '', '', '', '']);
-    setOtpError('');
     setShowOTP(false);
+    setOtpValue('');
+    setOtpError('');
     await handleSendOTP();
   };
 
+  // ── OTP display boxes ────────────────────────────────────────────────────
+  const OtpBoxes = () => (
+    <TouchableOpacity style={styles.otpRow} onPress={focusHidden} activeOpacity={1}>
+      {Array.from({ length: 6 }).map((_, i) => {
+        const char = otpValue[i] || '';
+        const isCurrent = i === otpValue.length && otpValue.length < 6;
+        return (
+          <View
+            key={i}
+            style={[
+              styles.otpBox,
+              char ? styles.otpBoxFilled : null,
+              isCurrent ? styles.otpBoxActive : null,
+              otpError ? styles.otpBoxError : null,
+            ]}
+          >
+            <Text style={styles.otpBoxText}>{char}</Text>
+            {isCurrent && <View style={styles.otpCursor} />}
+          </View>
+        );
+      })}
+      {/* Hidden input that captures all keystrokes */}
+      <TextInput
+        ref={hiddenInputRef}
+        style={styles.hiddenInput}
+        value={otpValue}
+        onChangeText={handleOtpChange}
+        keyboardType="number-pad"
+        maxLength={6}
+        caretHidden
+        autoFocus={false}
+      />
+    </TouchableOpacity>
+  );
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Firebase reCAPTCHA — required for Phone Auth on mobile */}
+      {/* Firebase reCAPTCHA – required for Phone Auth */}
       <FirebaseRecaptchaVerifierModal
         ref={recaptchaVerifier}
         firebaseConfig={app.options}
         attemptInvisibleVerification={true}
       />
 
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <MaterialIcons name="security" size={24} color={Colors.primary} />
@@ -113,6 +171,8 @@ export default function SupervisorLogin() {
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container}>
+
+          {/* Brand */}
           <View style={styles.brandSection}>
             <View style={styles.iconContainer}>
               <MaterialIcons name="admin-panel-settings" size={40} color={Colors.textWhite} />
@@ -121,18 +181,20 @@ export default function SupervisorLogin() {
             <Text style={styles.subtitle}>Authorized Access Only</Text>
           </View>
 
+          {/* Form */}
           <View style={styles.formContainer}>
-            <Text style={styles.sectionLabel}>PHONE NUMBER</Text>
+            <Text style={styles.sectionLabel}>EMPLOYEE ID</Text>
             <View style={styles.inputGroup}>
-              <MaterialIcons name="phone" size={22} color={Colors.textSecondary} style={styles.inputIcon} />
+              <MaterialIcons name="badge" size={22} color={Colors.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="+91 XXXXX XXXXX"
+                placeholder="e.g. RJ123"
                 placeholderTextColor={Colors.textMuted}
-                value={phoneNumber}
-                onChangeText={handlePhoneChange}
-                keyboardType="phone-pad"
-                autoComplete="tel"
+                value={employeeId}
+                onChangeText={t => setEmployeeId(t.replace(/[^a-zA-Z0-9]/g, ''))}
+                autoCapitalize="characters"
+                returnKeyType="done"
+                onSubmitEditing={handleSendOTP}
               />
             </View>
 
@@ -160,22 +222,19 @@ export default function SupervisorLogin() {
             <View style={styles.infoBox}>
               <MaterialIcons name="info" size={16} color={Colors.primary} />
               <Text style={styles.infoText}>
-                A one-time password will be sent to your registered mobile number via SMS.
+                Enter your Employee ID. An OTP will be sent to your registered mobile number.
               </Text>
             </View>
           </View>
 
+          {/* Language selector */}
           <View style={styles.languageSection}>
             <Text style={styles.languageTitle}>SELECT LANGUAGE</Text>
             <View style={styles.languageOptions}>
               {languages.map(lang => {
                 const isActive = language === lang.code;
                 return (
-                  <TouchableOpacity
-                    key={lang.code}
-                    style={styles.languageOption}
-                    onPress={() => setLanguage(lang.code)}
-                  >
+                  <TouchableOpacity key={lang.code} style={styles.languageOption} onPress={() => setLanguage(lang.code)}>
                     <View style={[styles.langCircle, isActive && styles.langCircleActive]}>
                       <Text style={[styles.langCode, isActive && styles.langCodeActive]}>{lang.code}</Text>
                     </View>
@@ -188,6 +247,7 @@ export default function SupervisorLogin() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* Footer */}
       <View style={styles.footer}>
         <View style={styles.footerBadge}>
           <MaterialIcons name="verified-user" size={14} color={Colors.textSecondary} />
@@ -197,7 +257,12 @@ export default function SupervisorLogin() {
       </View>
 
       {/* OTP Verification Modal */}
-      <Modal visible={showOTP} transparent animationType="slide" onShow={handleModalOpen}>
+      <Modal
+        visible={showOTP}
+        transparent
+        animationType="slide"
+        onShow={() => setTimeout(() => hiddenInputRef.current?.focus(), 350)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <TouchableOpacity style={styles.modalClose} onPress={() => setShowOTP(false)}>
@@ -207,29 +272,10 @@ export default function SupervisorLogin() {
             <MaterialIcons name="sms" size={48} color={Colors.primary} />
             <Text style={styles.modalTitle}>Enter OTP</Text>
             <Text style={styles.modalSubtitle}>
-              6-digit code sent to {phoneNumber}
+              6-digit code sent to{'\n'}{resolvedPhone}
             </Text>
 
-            <View style={styles.otpRow}>
-              {otp.map((digit, index) => (
-                <TextInput
-                  key={index}
-                  ref={(ref) => (otpRefs.current[index] = ref)}
-                  style={[
-                    styles.otpInput,
-                    digit ? styles.otpInputFilled : null,
-                    otpError ? styles.otpInputError : null,
-                  ]}
-                  maxLength={1}
-                  keyboardType="number-pad"
-                  value={digit}
-                  onChangeText={(value) => handleOtpChange(value, index)}
-                  onKeyPress={(e) => handleOtpKeyPress(e, index)}
-                  // Prevent tapping later boxes before filling earlier ones
-                  editable={index === 0 || otp[index - 1] !== ''}
-                />
-              ))}
-            </View>
+            <OtpBoxes />
 
             {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
 
@@ -288,8 +334,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
   },
   sectionLabel: {
-    fontSize: 11, fontWeight: '800', color: Colors.textSecondary, letterSpacing: 1.5,
-    marginBottom: 10,
+    fontSize: 11, fontWeight: '800', color: Colors.textSecondary, letterSpacing: 1.5, marginBottom: 10,
   },
   inputGroup: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background,
@@ -297,7 +342,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border, marginBottom: 20,
   },
   inputIcon: { marginRight: 12 },
-  input: { flex: 1, height: '100%', fontSize: 18, color: Colors.textPrimary, letterSpacing: 1 },
+  input: { flex: 1, height: '100%', fontSize: 18, color: Colors.textPrimary, letterSpacing: 2 },
   loginButton: {
     flexDirection: 'row', height: 56, backgroundColor: Colors.primary, borderRadius: 12,
     justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 20,
@@ -317,18 +362,18 @@ const styles = StyleSheet.create({
   languageTitle: { fontSize: 12, fontWeight: 'bold', color: 'rgba(68,70,82,0.6)', letterSpacing: 2, marginBottom: 16 },
   languageOptions: { flexDirection: 'row', gap: 16, flexWrap: 'wrap', justifyContent: 'center' },
   languageOption: { alignItems: 'center', gap: 4 },
-  langCircleActive: {
-    width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: Colors.primary,
-    justifyContent: 'center', alignItems: 'center',
-  },
   langCircle: {
     width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: Colors.borderMuted,
     justifyContent: 'center', alignItems: 'center', opacity: 0.6,
   },
-  langCodeActive: { fontWeight: 'bold', color: Colors.primary },
+  langCircleActive: {
+    width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: Colors.primary,
+    justifyContent: 'center', alignItems: 'center', opacity: 1,
+  },
   langCode: { fontWeight: 'bold', color: Colors.textSecondary },
-  langNameActive: { fontSize: 10, fontWeight: 'bold', color: Colors.primary, marginTop: 4 },
+  langCodeActive: { fontWeight: 'bold', color: Colors.primary },
   langName: { fontSize: 10, fontWeight: 'bold', color: Colors.textSecondary, marginTop: 4, opacity: 0.6 },
+  langNameActive: { fontSize: 10, fontWeight: 'bold', color: Colors.primary, marginTop: 4 },
   footer: { padding: 24, alignItems: 'center', gap: 4 },
   footerBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, opacity: 0.4 },
   footerTextBold: { fontSize: 10, fontWeight: '600', letterSpacing: 1, color: Colors.textSecondary },
@@ -341,15 +386,27 @@ const styles = StyleSheet.create({
   },
   modalClose: { position: 'absolute', top: 16, right: 16, padding: 8 },
   modalTitle: { fontSize: 24, fontWeight: '900', color: Colors.textPrimary, marginTop: 16 },
-  modalSubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginTop: 8, marginBottom: 24 },
-  otpRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  otpInput: {
-    width: 48, height: 56, borderRadius: 12, borderWidth: 2, borderColor: Colors.border,
-    textAlign: 'center', fontSize: 24, fontWeight: '700', color: Colors.textPrimary,
-    backgroundColor: Colors.background,
+  modalSubtitle: {
+    fontSize: 14, color: Colors.textSecondary, textAlign: 'center',
+    marginTop: 8, marginBottom: 24, lineHeight: 22,
   },
-  otpInputFilled: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
-  otpInputError: { borderColor: Colors.danger },
+  // OTP boxes (driven by single hidden input)
+  otpRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  otpBox: {
+    width: 46, height: 56, borderRadius: 12, borderWidth: 2, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background,
+  },
+  otpBoxFilled: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  otpBoxActive: { borderColor: Colors.primary, borderWidth: 2.5 },
+  otpBoxError: { borderColor: Colors.danger },
+  otpBoxText: { fontSize: 24, fontWeight: '700', color: Colors.textPrimary },
+  otpCursor: {
+    position: 'absolute', bottom: 10, width: 2, height: 22,
+    backgroundColor: Colors.primary, borderRadius: 1,
+  },
+  hiddenInput: {
+    position: 'absolute', opacity: 0, width: 1, height: 1,
+  },
   errorText: { color: Colors.danger, fontSize: 13, fontWeight: '600', marginBottom: 12 },
   verifyButton: {
     flexDirection: 'row', width: '100%', height: 56, backgroundColor: Colors.primary,

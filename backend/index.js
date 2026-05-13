@@ -28,7 +28,28 @@ app.get('/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() 
 
 // --- API Endpoints ---
 
-// 1. Fetch assigned shift/checkpoints (Mocked for POC)
+// 0. Resolve Employee ID → phone number (no token required – pre-auth step)
+app.post('/api/auth/resolve-employee', async (req, res) => {
+  const { employeeId } = req.body;
+  if (!employeeId) return res.status(400).json({ error: 'employeeId required' });
+  try {
+    const pool = getPool();
+    if (pool) {
+      const [rows] = await pool.execute(
+        'SELECT phone_number FROM employees WHERE employee_id = ? LIMIT 1',
+        [employeeId.toUpperCase()]
+      );
+      if (rows.length > 0 && rows[0].phone_number) {
+        return res.json({ phone: rows[0].phone_number });
+      }
+    }
+    return res.status(404).json({ error: 'Employee not found' });
+  } catch (e) {
+    console.error('[resolve-employee] DB error:', e.message);
+    return res.status(500).json({ error: 'DB error' });
+  }
+});
+
 app.get('/api/shift/today', verifyToken, async (req, res) => {
   const mockShift = {
     shiftId: 'SH-1024',

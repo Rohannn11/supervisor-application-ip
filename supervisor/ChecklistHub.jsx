@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -8,7 +8,9 @@ import { Colors } from '../src/theme/colors';
 
 export default function ChecklistHub() {
   const navigation = useNavigation();
-  const { patrolSpots, isSessionLocked } = usePatrol();
+  const { patrolSpots, isSessionLocked, resetSession } = usePatrol();
+  const doneCount = patrolSpots.filter(s => s.checklistDone).length;
+  const allDone = patrolSpots.length > 0 && doneCount === patrolSpots.length;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -55,8 +57,15 @@ export default function ChecklistHub() {
               <TouchableOpacity
                 key={spot.id}
                 style={[styles.spotCard, spot.checklistDone && styles.spotCardDone]}
-                onPress={() => navigation.navigate('PatrolChecklist', { spotId: spot.id, spotName: spot.name })}
-                activeOpacity={0.8}
+                onPress={() => {
+                  if (spot.checklistDone) return; // already done
+                  navigation.navigate('PatrolChecklist', {
+                    spotId: spot.id,
+                    spotName: spot.name,
+                    spotIndex: index,
+                  });
+                }}
+                activeOpacity={spot.checklistDone ? 1 : 0.8}
               >
                 <View style={[styles.spotIndex, spot.checklistDone && styles.spotIndexDone]}>
                   {spot.checklistDone ? (
@@ -107,6 +116,32 @@ export default function ChecklistHub() {
                 </View>
               </View>
             </View>
+            {/* End Patrol CTA when all spots done */}
+            {allDone && (
+              <TouchableOpacity
+                style={styles.endPatrolBtn}
+                onPress={() => {
+                  Alert.alert(
+                    'End Patrol',
+                    'All spots have been inspected. End the patrol session?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'End Patrol',
+                        style: 'destructive',
+                        onPress: async () => {
+                          await resetSession();
+                          navigation.navigate('HomeTab', { screen: 'SupervisorDashboard' });
+                        },
+                      },
+                    ]
+                  );
+                }}
+              >
+                <MaterialIcons name="flag" size={22} color={Colors.textWhite} />
+                <Text style={styles.endPatrolText}>End Patrol Session</Text>
+              </TouchableOpacity>
+            )}
           </>
         )}
         <View style={{ height: 40 }} />
@@ -177,5 +212,12 @@ const styles = StyleSheet.create({
   summaryItem: { flex: 1, alignItems: 'center' },
   summaryValue: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
   summaryLabel: { fontSize: 12, color: Colors.textSecondary, marginTop: 4 },
-  summaryDivider: { width: 1, height: 40, backgroundColor: Colors.borderLight },
+  endPatrolBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: Colors.success, borderRadius: 14, paddingVertical: 18,
+    marginTop: 8, elevation: 4,
+    shadowColor: Colors.success, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8,
+  },
+  endPatrolText: { color: Colors.textWhite, fontSize: 16, fontWeight: '800' },
 });

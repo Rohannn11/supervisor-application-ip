@@ -92,6 +92,25 @@ const initSchema = async (dbPool) => {
       );
     `);
     
+    await dbPool.execute(`
+      CREATE TABLE IF NOT EXISTS employees (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        employee_id VARCHAR(20) UNIQUE NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        phone_number VARCHAR(20) NOT NULL,
+        role VARCHAR(50) DEFAULT 'Supervisor',
+        site VARCHAR(100),
+        shift VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Seed test employee for POC (RJ123 → Firebase test number)
+    await dbPool.execute(`
+      INSERT IGNORE INTO employees (employee_id, name, phone_number, role, site, shift)
+      VALUES ('RJ123', 'Rohan Joshi', '+919999999999', 'Supervisor', 'Tech Park', '08:00 AM - 04:00 PM');
+    `);
+    
     console.log('MySQL Schema initialized');
   } catch (error) {
     console.error('Error initializing schema:', error);
