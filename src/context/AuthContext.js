@@ -17,7 +17,7 @@ export function AuthProvider({ children }) {
         // We no longer use Firestore for the user profile.
         // In a full implementation, you would fetch the user profile from your MySQL backend here:
         // const token = await firebaseUser.getIdToken();
-        // const res = await fetch('http://192.168.1.6:3000/api/auth/profile', { headers: { Authorization: `Bearer ${token}` } });
+        // const res = await fetch(`${process.env.EXPO_PUBLIC_API_BASE}/api/auth/profile`, { headers: { Authorization: `Bearer ${token}` } });
         // const profile = await res.json();
         
         // For the POC, we construct a default profile object natively.

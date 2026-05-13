@@ -11,8 +11,8 @@ import { useAppContext } from '../src/context/AppContext';
 import { app } from '../src/config/firebase';
 import { Colors } from '../src/theme/colors';
 
-// Backend URL – same as the rest of the app
-const API_BASE = 'http://192.168.1.6:3000';
+// Backend URL – from environment variables
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE;
 
 export default function SupervisorLogin() {
   const { sendOTP, confirmOTP, isLoading } = useAuth();

@@ -98,7 +98,7 @@ export default function PatrolChecklist() {
         })),
         location: null,
       };
-      await fetch('http://192.168.1.6:3000/api/patrol/submit', {
+      await fetch(`${process.env.EXPO_PUBLIC_API_BASE}/api/patrol/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer mock-token-12345' },
         body: JSON.stringify(payload),
