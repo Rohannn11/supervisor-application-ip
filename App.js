@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { AppProvider } from './src/context/AppContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { PatrolProvider } from './src/context/PatrolContext';
 import AuthStack from './src/navigation/AuthStack';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import { Colors } from './src/theme/colors';
@@ -35,8 +36,10 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <AppProvider>
-          <StatusBar style={Platform.OS === 'ios' ? 'dark' : 'light'} backgroundColor={Colors.surface} />
-          <RootNavigator />
+          <PatrolProvider>
+            <StatusBar style={Platform.OS === 'ios' ? 'dark' : 'light'} backgroundColor={Colors.surface} />
+            <RootNavigator />
+          </PatrolProvider>
         </AppProvider>
       </AuthProvider>
     </SafeAreaProvider>

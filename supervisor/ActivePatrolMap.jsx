@@ -1,106 +1,106 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import MapView, { Marker, Polygon } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { usePatrol } from '../src/context/PatrolContext';
 import GPSStatusBar from '../src/components/GPSStatusBar';
 import { Colors } from '../src/theme/colors';
 
+// Ray-casting to test if a point is inside a polygon
+function pointInPolygon(point, polygon) {
+  if (!polygon || polygon.length < 3) return true;
+  let inside = false;
+  const { latitude: y, longitude: x } = point;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const { latitude: yi, longitude: xi } = polygon[i];
+    const { latitude: yj, longitude: xj } = polygon[j];
+    const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// 'draw' = tap to build boundary polygon
+// 'spot' = tap inside boundary to add patrol spots
+const MODES = { DRAW: 'draw', SPOT: 'spot' };
+
 export default function ActivePatrolMap() {
   const navigation = useNavigation();
+  const { geofencePolygon, setGeofencePolygon, patrolSpots, addSpot, isSessionLocked, lockSession } = usePatrol();
+
   const [location, setLocation] = useState(null);
   const [initialLoc, setInitialLoc] = useState(null);
-  const [isInsideGeofence, setIsInsideGeofence] = useState(true);
-  const [isLocked, setIsLocked] = useState(false);
-  const [polygonPoints, setPolygonPoints] = useState([]);
-
-  const CHECKPOINTS = [
-    // We will dynamically adjust checkpoints based on siteCenter later, 
-    // but for UI mock purposes we'll render some mock checkpoints relative to the center.
-  ];
-
-  // Ray-casting algorithm to check if point is inside polygon
-  const isPointInPolygon = (point, vs) => {
-    if (!vs || vs.length < 3) return true; // Not enough points to form a geofence
-    let x = point.longitude, y = point.latitude;
-    let inside = false;
-    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-      let xi = vs[i].longitude, yi = vs[i].latitude;
-      let xj = vs[j].longitude, yj = vs[j].latitude;
-      let intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-      if (intersect) inside = !inside;
-    }
-    return inside;
-  };
-
-  // Mock checkpoints (we use initialLoc just to render some mocks nearby)
-  const getMockCheckpoints = (center) => {
-    if (!center) return [];
-    return [
-      { id: 1, title: 'Main Gate', coordinate: { latitude: center.latitude + 0.0005, longitude: center.longitude + 0.0005 }, done: true },
-      { id: 2, title: 'Parking B', coordinate: { latitude: center.latitude - 0.0004, longitude: center.longitude - 0.0003 }, done: true },
-      { id: 3, title: 'Generator Room', coordinate: { latitude: center.latitude - 0.0006, longitude: center.longitude + 0.0002 }, done: false, target: true },
-    ];
-  };
+  const [mode, setMode] = useState(MODES.DRAW);
 
   useEffect(() => {
     let sub;
     (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
+      const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission denied', 'Allow location access to use patrol mapping.');
         return;
       }
+      const cur = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const coords = { latitude: cur.coords.latitude, longitude: cur.coords.longitude };
+      setInitialLoc(coords);
+      setLocation(coords);
 
-      let currentLoc = await Location.getCurrentPositionAsync({});
-      const userCoords = {
-        latitude: currentLoc.coords.latitude,
-        longitude: currentLoc.coords.longitude,
-      };
-      
-      // Set initial location map center once
-      setInitialLoc(userCoords);
-      setLocation(userCoords);
-      setIsInsideGeofence(true);
-
-      sub = await Location.watchPositionAsync({
-        accuracy: Location.Accuracy.High,
-        timeInterval: 2000,
-        distanceInterval: 1,
-      }, (newLoc) => {
-         const newCoords = {
-           latitude: newLoc.coords.latitude,
-           longitude: newLoc.coords.longitude
-         };
-         setLocation(newCoords);
-
-         // If geofence is locked, verify if user is inside polygon
-         if (isLocked && polygonPoints.length >= 3) {
-           const inside = isPointInPolygon(newCoords, polygonPoints);
-           setIsInsideGeofence(inside);
-           if (!inside) {
-             Alert.alert("Geofence Warning", "You are OUTSIDE the designated patrol boundary.");
-           }
-         }
-      });
+      sub = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.High, timeInterval: 3000, distanceInterval: 2 },
+        (loc) => {
+          const c = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+          setLocation(c);
+          if (isSessionLocked && geofencePolygon.length >= 3) {
+            if (!pointInPolygon(c, geofencePolygon)) {
+              Alert.alert('Geofence Warning', 'You are OUTSIDE the designated patrol boundary!');
+            }
+          }
+        }
+      );
     })();
-    return () => { if(sub) sub.remove(); };
-  }, [isLocked, polygonPoints]);
-
-  const checkpointsToRender = getMockCheckpoints(initialLoc);
+    return () => { if (sub) sub.remove(); };
+  }, []);
 
   const handleMapPress = (e) => {
-    if (!isLocked) {
-      setPolygonPoints([...polygonPoints, e.nativeEvent.coordinate]);
+    if (isSessionLocked) return;
+    const coord = e.nativeEvent.coordinate;
+
+    if (mode === MODES.DRAW) {
+      setGeofencePolygon([...geofencePolygon, coord]);
+    } else {
+      // SPOT mode: only allow if inside the drawn polygon
+      if (geofencePolygon.length >= 3 && !pointInPolygon(coord, geofencePolygon)) {
+        Alert.alert('Outside Boundary', 'Patrol spots must be placed inside the geofence boundary.');
+        return;
+      }
+      addSpot(coord);
     }
   };
+
+  const handleLock = () => {
+    if (geofencePolygon.length < 3) {
+      Alert.alert('Incomplete', 'Please tap at least 3 points to define the patrol boundary first.');
+      return;
+    }
+    Alert.alert(
+      'Lock Session',
+      `Lock this patrol session with ${geofencePolygon.length} boundary points and ${patrolSpots.length} patrol spots?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Lock', style: 'destructive', onPress: () => lockSession() },
+      ]
+    );
+  };
+
+  const modeLabel = mode === MODES.DRAW ? 'DRAW BOUNDARY' : 'PLACE SPOTS';
+  const modeIcon = mode === MODES.DRAW ? 'edit' : 'add-location';
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <GPSStatusBar />
-
       <View style={styles.mapContainer}>
         {initialLoc && (
           <MapView
@@ -108,163 +108,144 @@ export default function ActivePatrolMap() {
             initialRegion={{
               latitude: initialLoc.latitude,
               longitude: initialLoc.longitude,
-              latitudeDelta: 0.003,
-              longitudeDelta: 0.003,
+              latitudeDelta: 0.004,
+              longitudeDelta: 0.004,
             }}
-            showsUserLocation={false}
             onPress={handleMapPress}
           >
-            {/* Geofence Polygon */}
-            {polygonPoints.length > 0 && (
+            {/* Boundary polygon */}
+            {geofencePolygon.length > 0 && (
               <Polygon
-                coordinates={polygonPoints}
-                fillColor="rgba(0, 150, 255, 0.2)"
+                coordinates={geofencePolygon}
+                fillColor="rgba(0,100,255,0.12)"
                 strokeColor={Colors.primary}
                 strokeWidth={2}
               />
             )}
-            
-            {/* Polygon Boundary Markers */}
-            {!isLocked && polygonPoints.map((pt, i) => (
-              <Marker key={`pt-${i}`} coordinate={pt}>
-                <View style={styles.polygonDot} />
+
+            {/* Boundary vertex markers (draw mode, unlocked) */}
+            {!isSessionLocked && mode === MODES.DRAW && geofencePolygon.map((pt, i) => (
+              <Marker key={`boundary-${i}`} coordinate={pt} anchor={{ x: 0.5, y: 0.5 }}>
+                <View style={styles.boundaryDot} />
               </Marker>
             ))}
 
-            {/* Simulated Live User Location */}
+            {/* Patrol spots */}
+            {patrolSpots.map((spot, i) => (
+              <Marker
+                key={`spot-${spot.id}`}
+                coordinate={spot.coordinate}
+                anchor={{ x: 0.5, y: 1 }}
+              >
+                <View style={[styles.spotMarker, spot.checklistDone && styles.spotMarkerDone]}>
+                  <Text style={styles.spotMarkerText}>{i + 1}</Text>
+                </View>
+              </Marker>
+            ))}
+
+            {/* Live user location */}
             {location && (
-              <Marker coordinate={location}>
-                <View style={styles.currentLocation}>
-                  <View style={styles.locationPulse} />
-                  <View style={styles.locationDot} />
+              <Marker coordinate={location} anchor={{ x: 0.5, y: 0.5 }}>
+                <View style={styles.userDotOuter}>
+                  <View style={styles.userDot} />
                 </View>
               </Marker>
             )}
-
-            {/* Checkpoints */}
-            {checkpointsToRender.map((cp) => (
-              <Marker key={cp.id} coordinate={cp.coordinate}>
-                <View style={styles.checkpoint}>
-                  {cp.done ? (
-                    <View style={styles.checkpointDone}>
-                      <MaterialIcons name="check" size={16} color={Colors.textWhite} />
-                    </View>
-                  ) : cp.target ? (
-                    <View style={styles.checkpointTarget}>
-                      <MaterialIcons name="location-on" size={24} color={Colors.textWhite} />
-                    </View>
-                  ) : (
-                    <View style={[styles.checkpointDone, { backgroundColor: Colors.borderMuted }]}>
-                      <MaterialIcons name="location-on" size={16} color={Colors.textWhite} />
-                    </View>
-                  )}
-                  <Text style={[styles.checkpointLabel, cp.target && { color: Colors.danger }]}>{cp.title}</Text>
-                  {cp.target && (
-                    <View style={styles.targetBadge}>
-                      <Text style={styles.targetBadgeText}>Target</Text>
-                    </View>
-                  )}
-                </View>
-              </Marker>
-            ))}
           </MapView>
         )}
 
-        {/* Header Overlay */}
-        <View style={styles.mapOverlayHeader}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.overlayCircleBtn}>
-            <MaterialIcons name="arrow-back" size={24} color={Colors.textPrimary} />
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.circleBtn}>
+            <MaterialIcons name="arrow-back" size={22} color={Colors.textPrimary} />
           </TouchableOpacity>
-
           <Text style={styles.headerTitle}>Patrol Monitor</Text>
-
           <TouchableOpacity
-            style={styles.sosHeaderBtn}
+            style={styles.sosBtn}
             onPress={() => navigation.navigate('EmergencySOSActive')}
           >
-            <MaterialIcons name="emergency" size={16} color={Colors.textWhite} />
-            <Text style={styles.sosHeaderText}>SOS</Text>
+            <MaterialIcons name="emergency" size={14} color={Colors.textWhite} />
+            <Text style={styles.sosBtnText}>SOS</Text>
           </TouchableOpacity>
         </View>
 
-        {!isLocked && (
-          <View style={styles.lockContainer}>
-            <Text style={styles.lockHint}>Tap map to draw boundary polygon</Text>
-            <View style={{flexDirection: 'row', gap: 10}}>
-              <TouchableOpacity 
-                style={[styles.lockBtn, {backgroundColor: Colors.danger}]} 
-                onPress={() => setPolygonPoints([])}
+        {/* Mode toggle + controls — hidden when locked */}
+        {!isSessionLocked ? (
+          <View style={styles.controlPanel}>
+            {/* Mode Toggle */}
+            <View style={styles.modeToggle}>
+              <TouchableOpacity
+                style={[styles.modeBtn, mode === MODES.DRAW && styles.modeBtnActive]}
+                onPress={() => setMode(MODES.DRAW)}
               >
-                <MaterialIcons name="undo" size={20} color={Colors.textWhite} />
-                <Text style={styles.lockBtnText}>CLEAR</Text>
+                <MaterialIcons name="edit" size={16} color={mode === MODES.DRAW ? Colors.textWhite : Colors.textSecondary} />
+                <Text style={[styles.modeBtnText, mode === MODES.DRAW && styles.modeBtnTextActive]}>Boundary</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.lockBtn} 
-                onPress={() => {
-                  if (polygonPoints.length < 3) {
-                    Alert.alert("Invalid", "Please tap at least 3 points to form a boundary.");
-                    return;
-                  }
-                  Alert.alert("Locked", "Patrol boundary locked for this session.");
-                  setIsLocked(true);
-                }}
+              <TouchableOpacity
+                style={[styles.modeBtn, mode === MODES.SPOT && styles.modeBtnActive]}
+                onPress={() => setMode(MODES.SPOT)}
               >
-                <MaterialIcons name="lock" size={20} color={Colors.textWhite} />
-                <Text style={styles.lockBtnText}>LOCK BOUNDARY</Text>
+                <MaterialIcons name="add-location" size={16} color={mode === MODES.SPOT ? Colors.textWhite : Colors.textSecondary} />
+                <Text style={[styles.modeBtnText, mode === MODES.SPOT && styles.modeBtnTextActive]}>Spots</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Hint */}
+            <Text style={styles.hint}>
+              {mode === MODES.DRAW
+                ? `Tap to add boundary points (${geofencePolygon.length} placed)`
+                : `Tap inside boundary to add spots (${patrolSpots.length} placed)`}
+            </Text>
+
+            {/* Actions */}
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={styles.clearBtn}
+                onPress={() => {
+                  if (mode === MODES.DRAW) setGeofencePolygon([]);
+                  else Alert.alert('Note', 'Clear boundary (Draw mode) to reset spots.');
+                }}
+              >
+                <MaterialIcons name="undo" size={16} color={Colors.danger} />
+                <Text style={styles.clearBtnText}>Clear</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.lockBtn} onPress={handleLock}>
+                <MaterialIcons name="lock" size={16} color={Colors.textWhite} />
+                <Text style={styles.lockBtnText}>Lock Session</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.lockedBanner}>
+            <MaterialIcons name="lock" size={16} color={Colors.success} />
+            <Text style={styles.lockedText}>
+              Session locked · {patrolSpots.length} spots · {geofencePolygon.length} boundary pts
+            </Text>
           </View>
         )}
 
-        {/* Map Controls */}
-        <View style={styles.mapControls}>
-          <TouchableOpacity style={styles.controlBtn}>
-            <MaterialIcons name="layers" size={22} color={Colors.textPrimary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.controlBtn}>
-            <MaterialIcons name="my-location" size={22} color={Colors.primary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Open Checklist Card */}
-        <View style={styles.checklistPrompt}>
-          <View style={styles.checklistPromptIcon}>
-            <MaterialIcons name="checklist" size={28} color={Colors.primary} />
-          </View>
-          <TouchableOpacity
-            style={styles.checklistPromptContent}
-            onPress={() => navigation.navigate('CheckpointScanScreen')}
-          >
-            <Text style={styles.checklistPromptTitle}>Open Checklist</Text>
-            <Text style={styles.checklistPromptSub}>3 tasks pending nearby</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Bottom Card */}
+        {/* Bottom info card */}
         <View style={styles.bottomCard}>
           <View style={styles.cardHandle} />
-          <View style={styles.targetInfoRow}>
-            <View style={styles.targetImgPlaceholder}>
-              <MaterialIcons name="warehouse" size={28} color={Colors.textSecondary} />
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <MaterialIcons name="place" size={20} color={Colors.primary} />
+              <Text style={styles.statValue}>{patrolSpots.length}</Text>
+              <Text style={styles.statLabel}>Spots</Text>
             </View>
-            <View style={styles.targetInfoText}>
-              <Text style={styles.targetName}>Generator Room <Text style={styles.targetDot}>●</Text></Text>
-              <View style={styles.targetMeta}>
-                <View style={styles.metaPill}>
-                  <MaterialIcons name="navigation" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.metaText}>45m</Text>
-                </View>
-                <View style={[styles.metaPill, { backgroundColor: Colors.dangerLight }]}>
-                  <Text style={[styles.metaText, { color: Colors.danger }]}>Priority High</Text>
-                </View>
-              </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <MaterialIcons name="check-circle" size={20} color={Colors.success} />
+              <Text style={styles.statValue}>{patrolSpots.filter(s => s.checklistDone).length}</Text>
+              <Text style={styles.statLabel}>Done</Text>
             </View>
+            <View style={styles.statDivider} />
             <TouchableOpacity
-              style={styles.navigateBtn}
-              onPress={() => navigation.navigate('CheckpointScanScreen')}
+              style={styles.checklistCTA}
+              onPress={() => navigation.navigate('ChecklistTab')}
             >
-              <MaterialIcons name="send" size={22} color={Colors.textWhite} />
+              <MaterialIcons name="checklist" size={20} color={Colors.textWhite} />
+              <Text style={styles.checklistCTAText}>Open Checklist</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -274,113 +255,99 @@ export default function ActivePatrolMap() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.textPrimary },
+  safeArea: { flex: 1, backgroundColor: '#1a1a2e' },
   mapContainer: { flex: 1, position: 'relative' },
-  mapBg: { flex: 1, backgroundColor: 'transparent' },
-  checkpoint: { position: 'absolute', alignItems: 'center' },
-  checkpointDone: {
-    width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.success,
-    alignItems: 'center', justifyContent: 'center', elevation: 4,
-  },
-  checkpointTarget: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.danger,
-    alignItems: 'center', justifyContent: 'center', elevation: 6,
-    borderWidth: 3, borderColor: Colors.textWhite,
-  },
-  checkpointLabel: {
-    fontSize: 11, fontWeight: '700', color: Colors.textPrimary, marginTop: 4,
-    backgroundColor: Colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
-  },
-  targetBadge: {
-    backgroundColor: Colors.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4,
-    marginTop: 2,
-  },
-  targetBadgeText: { color: Colors.textWhite, fontSize: 9, fontWeight: '800' },
-  currentLocation: { position: 'absolute', alignItems: 'center' },
-  locationPulse: {
-    position: 'absolute', width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(0, 46, 133, 0.15)',
-  },
-  locationDot: {
-    width: 16, height: 16, borderRadius: 8, backgroundColor: Colors.primary,
-    borderWidth: 3, borderColor: Colors.textWhite, elevation: 4,
-  },
-  polygonDot: {
-    width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary,
-    borderWidth: 2, borderColor: Colors.textWhite,
-  },
-  mapOverlayHeader: {
+  header: {
     position: 'absolute', top: 12, left: 16, right: 16,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  overlayCircleBtn: {
+  circleBtn: {
     width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surface,
     alignItems: 'center', justifyContent: 'center', elevation: 4,
   },
   headerTitle: {
-    fontSize: 18, fontWeight: '800', color: Colors.textPrimary,
-    backgroundColor: Colors.surface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12,
-    elevation: 4, overflow: 'hidden',
+    fontSize: 17, fontWeight: '800', color: Colors.textPrimary,
+    backgroundColor: Colors.surface, paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 12, elevation: 4, overflow: 'hidden',
   },
-  sosHeaderBtn: {
+  sosBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: Colors.danger, paddingHorizontal: 14, paddingVertical: 10,
     borderRadius: 20, elevation: 4,
   },
-  sosHeaderText: { color: Colors.textWhite, fontSize: 13, fontWeight: '900' },
-  mapControls: {
-    position: 'absolute', right: 16, top: 80, gap: 8,
+  sosBtnText: { color: Colors.textWhite, fontSize: 13, fontWeight: '900' },
+  controlPanel: {
+    position: 'absolute', top: 72, left: 16, right: 16,
+    backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: 16, padding: 12, elevation: 6,
   },
-  controlBtn: {
-    width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.surface,
-    alignItems: 'center', justifyContent: 'center', elevation: 4,
+  modeToggle: {
+    flexDirection: 'row', backgroundColor: Colors.background, borderRadius: 10,
+    padding: 3, marginBottom: 8,
   },
-  checklistPrompt: {
-    position: 'absolute', bottom: 160, left: '15%', right: '15%',
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.surface, borderRadius: 16, padding: 14,
-    elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15, shadowRadius: 10,
+  modeBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 8, borderRadius: 8,
   },
-  checklistPromptIcon: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.primaryLight,
-    alignItems: 'center', justifyContent: 'center',
+  modeBtnActive: { backgroundColor: Colors.primary },
+  modeBtnText: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
+  modeBtnTextActive: { color: Colors.textWhite },
+  hint: { fontSize: 12, color: Colors.textSecondary, textAlign: 'center', marginBottom: 8 },
+  actionRow: { flexDirection: 'row', gap: 8 },
+  clearBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    borderWidth: 1.5, borderColor: Colors.danger, borderRadius: 10, paddingVertical: 8,
   },
-  checklistPromptContent: { flex: 1 },
-  checklistPromptTitle: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
-  checklistPromptSub: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
-  lockContainer: {
-    position: 'absolute', top: 80, left: 0, right: 0, alignItems: 'center',
-  },
-  lockHint: {
-    backgroundColor: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginBottom: 8,
-  },
+  clearBtnText: { fontSize: 13, fontWeight: '700', color: Colors.danger },
   lockBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, elevation: 4,
+    flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: Colors.primary, borderRadius: 10, paddingVertical: 8,
   },
-  lockBtnText: { color: Colors.textWhite, fontWeight: 'bold' },
+  lockBtnText: { fontSize: 13, fontWeight: '700', color: Colors.textWhite },
+  lockedBanner: {
+    position: 'absolute', top: 72, left: 16, right: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#f0fdf4', borderRadius: 12, padding: 12,
+    borderWidth: 1, borderColor: Colors.success, elevation: 4,
+  },
+  lockedText: { fontSize: 13, fontWeight: '600', color: Colors.success },
   bottomCard: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 20, elevation: 10,
   },
-  cardHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.borderMuted, alignSelf: 'center', marginBottom: 16 },
-  targetInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  targetImgPlaceholder: {
-    width: 56, height: 56, borderRadius: 12, backgroundColor: Colors.background,
+  cardHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: Colors.borderMuted, alignSelf: 'center', marginBottom: 14,
+  },
+  statsRow: { flexDirection: 'row', alignItems: 'center' },
+  statItem: { flex: 1, alignItems: 'center', gap: 4 },
+  statDivider: { width: 1, height: 40, backgroundColor: Colors.borderLight },
+  statValue: { fontSize: 20, fontWeight: '900', color: Colors.textPrimary },
+  statLabel: { fontSize: 11, color: Colors.textSecondary },
+  checklistCTA: {
+    flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 12, marginLeft: 12,
+  },
+  checklistCTAText: { color: Colors.textWhite, fontSize: 14, fontWeight: '700' },
+  boundaryDot: {
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: Colors.primary, borderWidth: 2, borderColor: Colors.textWhite,
+  },
+  spotMarker: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: Colors.warning || '#f97316',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: Colors.textWhite, elevation: 4,
+  },
+  spotMarkerDone: { backgroundColor: Colors.success },
+  spotMarkerText: { color: Colors.textWhite, fontWeight: '900', fontSize: 14 },
+  userDotOuter: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: 'rgba(0,100,255,0.18)',
     alignItems: 'center', justifyContent: 'center',
   },
-  targetInfoText: { flex: 1 },
-  targetName: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
-  targetDot: { color: Colors.danger, fontSize: 10 },
-  targetMeta: { flexDirection: 'row', gap: 8, marginTop: 6 },
-  metaPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.background, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
-  },
-  metaText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
-  navigateBtn: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.primary,
-    alignItems: 'center', justifyContent: 'center', elevation: 4,
+  userDot: {
+    width: 14, height: 14, borderRadius: 7,
+    backgroundColor: Colors.primary, borderWidth: 2, borderColor: Colors.textWhite,
   },
 });

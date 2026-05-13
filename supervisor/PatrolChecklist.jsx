@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Colors } from '../src/theme/colors';
 import { useAuth } from '../src/context/AuthContext';
-import { ActivityIndicator, Alert } from 'react-native';
+import { usePatrol } from '../src/context/PatrolContext';
 
 const CHECKLIST_ITEMS = [
   { id: 1, question: 'Is the main gate secure and locked?' },
@@ -25,7 +25,11 @@ const CHECKLIST_ITEMS = [
 
 export default function PatrolChecklist() {
   const navigation = useNavigation();
+  const route = useRoute();
   const { user } = useAuth();
+  const { markSpotDone } = usePatrol();
+  const spotId = route.params?.spotId || null;
+  const spotName = route.params?.spotName || 'General Patrol';
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [items, setItems] = useState(
     CHECKLIST_ITEMS.map(item => ({ ...item, status: null, remark: '', uploadUri: null }))
@@ -64,46 +68,44 @@ export default function PatrolChecklist() {
   };
 
   const handleSubmit = async () => {
-    // Only send the ones that are answered
     const answeredItems = items.filter(i => i.status !== null);
     if (answeredItems.length === 0) {
-      Alert.alert("Incomplete", "Please answer at least one checklist item before submitting.");
+      Alert.alert('Incomplete', 'Please answer at least one checklist item before submitting.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Updated to use the correct local IP for physical Android testing
       const API_URL = 'http://192.168.1.6:3000/api/patrol/submit';
-      
       const payload = {
         shiftId: user?.shift || 'SH-1024',
+        spotId: spotId,
+        spotName: spotName,
         checklistResponses: answeredItems.map(i => ({
           id: i.id,
           title: i.question,
           status: i.status,
           remarks: i.remark,
-          photoUri: i.uploadUri
+          photoUri: i.uploadUri,
         })),
-        location: null // Could add GPS here
+        location: null,
       };
 
       await fetch(API_URL, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer mock-token-12345`
+          'Authorization': `Bearer mock-token-12345`,
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
-      
-      navigation.navigate('ReportSubmissionSuccess');
     } catch (e) {
-      console.warn("API Error (continuing for POC):", e);
-      // Fallback for POC offline/network testing
-      navigation.navigate('ReportSubmissionSuccess');
+      console.warn('API Error (continuing for POC):', e);
     } finally {
+      // Mark this spot as done in the patrol session
+      if (spotId) markSpotDone(spotId);
       setIsSubmitting(false);
+      navigation.navigate('ReportSubmissionSuccess');
     }
   };
 
@@ -113,7 +115,7 @@ export default function PatrolChecklist() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialIcons name="arrow-back" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Patrol Checklist</Text>
+        <Text style={styles.headerTitle}>{spotName}</Text>
         <TouchableOpacity>
           <MaterialIcons name="translate" size={24} color={Colors.primary} />
         </TouchableOpacity>

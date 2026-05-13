@@ -7,7 +7,7 @@ import TasksStack from './TasksStack';
 import ChecklistStack from './ChecklistStack';
 import ReportsStack from './ReportsStack';
 import ProfileScreen from '../../supervisor/ProfileScreen';
-import SOSFloatingButton from '../components/SOSFloatingButton';
+import SOSFloatingButton from '../components/SOSFloatingButton.jsx';
 import { Colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator();

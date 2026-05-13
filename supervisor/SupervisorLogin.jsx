@@ -1,69 +1,57 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, ActivityIndicator, KeyboardAvoidingView, Platform, Image } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
+  Modal, ActivityIndicator, KeyboardAvoidingView, Platform, Alert
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { useAuth } from '../src/context/AuthContext';
 import { useAppContext } from '../src/context/AppContext';
+import { app } from '../src/config/firebase';
 import { Colors } from '../src/theme/colors';
 
 export default function SupervisorLogin() {
-  const { login, isLoading } = useAuth();
+  const { sendOTP, confirmOTP, isLoading } = useAuth();
   const { language, setLanguage, languages } = useAppContext();
-  const [employeeId, setEmployeeId] = useState('');
-  const [photoTaken, setPhotoTaken] = useState(false);
-  const [photoUri, setPhotoUri] = useState(null);
+
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [showOTP, setShowOTP] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otpError, setOtpError] = useState('');
+  const [isSending, setIsSending] = useState(false);
+
   const otpRefs = useRef([]);
+  const recaptchaVerifier = useRef(null);
 
-  const takeSelfie = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      alert('Camera permission is required for liveness check');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      cameraType: ImagePicker.CameraType.front,
-      quality: 0.5,
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setPhotoUri(result.assets[0].uri);
-      setPhotoTaken(true);
-    }
+  const handlePhoneChange = (text) => {
+    // Allow +, digits, spaces
+    setPhoneNumber(text.replace(/[^+0-9 ]/g, ''));
   };
 
-  const handleContinueWithOTP = () => {
-    if (!employeeId.trim()) {
-      alert("Please enter Employee ID or Mobile number");
+  const handleSendOTP = async () => {
+    const trimmed = phoneNumber.trim();
+    if (!trimmed || trimmed.length < 10) {
+      Alert.alert('Invalid', 'Please enter a valid phone number with country code (e.g. +91XXXXXXXXXX)');
       return;
     }
-    setShowOTP(true);
-  };
-
-  const handleVerifyOTP = async () => {
-    const fullOtp = otp.join('');
-    if (fullOtp.length !== 6) {
-      alert("Please enter a valid 6-digit OTP");
-      return;
+    setIsSending(true);
+    const result = await sendOTP(trimmed, recaptchaVerifier.current);
+    setIsSending(false);
+    if (result.success) {
+      setShowOTP(true);
+    } else {
+      Alert.alert('OTP Failed', result.error || 'Could not send OTP. Check the number and try again.');
     }
-    await login(employeeId, fullOtp);
-  };
-
-  const handleEmployeeIdChange = (text) => {
-    // Strip special characters
-    setEmployeeId(text.replace(/[^a-zA-Z0-9]/g, ''));
   };
 
   const handleOtpChange = (value, index) => {
-    const cleanValue = value.replace(/[^0-9]/g, '');
+    const clean = value.replace(/[^0-9]/g, '');
     const newOtp = [...otp];
-    newOtp[index] = cleanValue;
+    newOtp[index] = clean;
     setOtp(newOtp);
-
-    if (cleanValue && index < 5) {
+    setOtpError('');
+    if (clean && index < 5) {
       otpRefs.current[index + 1]?.focus();
     }
   };
@@ -74,8 +62,39 @@ export default function SupervisorLogin() {
     }
   };
 
+  // Force first box focus when modal opens
+  const handleModalOpen = () => {
+    setTimeout(() => otpRefs.current[0]?.focus(), 300);
+  };
+
+  const handleVerifyOTP = async () => {
+    const code = otp.join('');
+    if (code.length !== 6) {
+      setOtpError('Please enter all 6 digits.');
+      return;
+    }
+    const result = await confirmOTP(code);
+    if (!result.success) {
+      setOtpError(result.error || 'Invalid OTP. Try again.');
+    }
+  };
+
+  const handleResend = async () => {
+    setOtp(['', '', '', '', '', '']);
+    setOtpError('');
+    setShowOTP(false);
+    await handleSendOTP();
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
+      {/* Firebase reCAPTCHA — required for Phone Auth on mobile */}
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={app.options}
+        attemptInvisibleVerification={true}
+      />
+
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <MaterialIcons name="security" size={24} color={Colors.primary} />
@@ -94,128 +113,91 @@ export default function SupervisorLogin() {
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.brandSection}>
-          <View style={styles.iconContainer}>
-            <MaterialIcons name="admin-panel-settings" size={40} color={Colors.textWhite} />
+          <View style={styles.brandSection}>
+            <View style={styles.iconContainer}>
+              <MaterialIcons name="admin-panel-settings" size={40} color={Colors.textWhite} />
+            </View>
+            <Text style={styles.title}>PatrolGuard</Text>
+            <Text style={styles.subtitle}>Authorized Access Only</Text>
           </View>
-          <Text style={styles.title}>PatrolGuard</Text>
-          <Text style={styles.subtitle}>Authorized Access Only</Text>
-        </View>
 
-        <View style={styles.formContainer}>
-          <View style={styles.inputWrapper}>
-            <Text style={styles.inputLabel}>Identity Details</Text>
+          <View style={styles.formContainer}>
+            <Text style={styles.sectionLabel}>PHONE NUMBER</Text>
             <View style={styles.inputGroup}>
-              <MaterialIcons name="badge" size={24} color={Colors.textSecondary} style={styles.inputIcon} />
+              <MaterialIcons name="phone" size={22} color={Colors.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Employee ID or Mobile (Alphanumeric)"
+                placeholder="+91 XXXXX XXXXX"
                 placeholderTextColor={Colors.textMuted}
-                value={employeeId}
-                onChangeText={handleEmployeeIdChange}
-                autoCapitalize="characters"
+                value={phoneNumber}
+                onChangeText={handlePhoneChange}
+                keyboardType="phone-pad"
+                autoComplete="tel"
               />
             </View>
-          </View>
 
-          <TouchableOpacity
-            style={[styles.livenessButton, photoTaken && styles.livenessButtonDone]}
-            onPress={takeSelfie}
-          >
-            {!photoTaken && (
-              <View style={styles.requiredBadge}>
-                <Text style={styles.requiredText}>REQUIRED</Text>
-              </View>
-            )}
-            {photoTaken ? (
-              <>
-                {photoUri ? (
-                  <Image source={{ uri: photoUri }} style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 8 }} />
-                ) : (
-                  <MaterialIcons name="check-circle" size={40} color={Colors.success} />
-                )}
-                <Text style={[styles.livenessTitle, { color: Colors.success }]}>Photo Captured</Text>
-                <Text style={styles.livenessSubtitle}>Tap to retake</Text>
-              </>
-            ) : (
-              <>
-                <MaterialIcons name="photo-camera" size={36} color={Colors.primary} />
-                <Text style={styles.livenessTitle}>Snap Live Photo</Text>
-                <Text style={styles.livenessSubtitle}>Liveness check required for security protocols</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {photoTaken ? (
             <TouchableOpacity
-              style={styles.loginButton}
-              onPress={() => {
-                if (!employeeId.trim()) {
-                  alert("Please enter Employee ID or Mobile number");
-                  return;
-                }
-                login(employeeId, '');
-              }}
-              disabled={isLoading}
+              style={[styles.loginButton, (isSending || isLoading) && { opacity: 0.7 }]}
+              onPress={handleSendOTP}
+              disabled={isSending || isLoading}
             >
-              {isLoading ? (
+              {isSending || isLoading ? (
                 <ActivityIndicator color={Colors.textWhite} />
               ) : (
                 <>
-                  <Text style={styles.loginButtonText}>Authenticate with Photo</Text>
-                  <MaterialIcons name="verified-user" size={20} color={Colors.textWhite} />
+                  <Text style={styles.loginButtonText}>Send OTP</Text>
+                  <MaterialIcons name="sms" size={20} color={Colors.textWhite} />
                 </>
               )}
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[styles.loginButton, { backgroundColor: Colors.surface, borderWidth: 2, borderColor: Colors.primary }]}
-              onPress={handleContinueWithOTP}
-            >
-              <Text style={[styles.loginButtonText, { color: Colors.primary }]}>Login via OTP</Text>
-              <MaterialIcons name="sms" size={20} color={Colors.primary} />
-            </TouchableOpacity>
-          )}
 
-          <TouchableOpacity style={styles.voiceHint}>
-            <MaterialIcons name="mic" size={24} color={Colors.primary} />
-            <Text style={styles.voiceHintText}>Tap to speak instructions</Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>via Firebase Phone Auth</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-        <View style={styles.languageSection}>
-          <Text style={styles.languageTitle}>SELECT LANGUAGE</Text>
-          <View style={styles.languageOptions}>
-            {languages.map(lang => {
-              const isActive = language === lang.code;
-              return (
-                <TouchableOpacity
-                  key={lang.code}
-                  style={styles.languageOption}
-                  onPress={() => setLanguage(lang.code)}
-                >
-                  <View style={[styles.langCircle, isActive && styles.langCircleActive]}>
-                    <Text style={[styles.langCode, isActive && styles.langCodeActive]}>{lang.code}</Text>
-                  </View>
-                  <Text style={[styles.langName, isActive && styles.langNameActive]}>{lang.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
+            <View style={styles.infoBox}>
+              <MaterialIcons name="info" size={16} color={Colors.primary} />
+              <Text style={styles.infoText}>
+                A one-time password will be sent to your registered mobile number via SMS.
+              </Text>
+            </View>
           </View>
-        </View>
+
+          <View style={styles.languageSection}>
+            <Text style={styles.languageTitle}>SELECT LANGUAGE</Text>
+            <View style={styles.languageOptions}>
+              {languages.map(lang => {
+                const isActive = language === lang.code;
+                return (
+                  <TouchableOpacity
+                    key={lang.code}
+                    style={styles.languageOption}
+                    onPress={() => setLanguage(lang.code)}
+                  >
+                    <View style={[styles.langCircle, isActive && styles.langCircleActive]}>
+                      <Text style={[styles.langCode, isActive && styles.langCodeActive]}>{lang.code}</Text>
+                    </View>
+                    <Text style={[styles.langName, isActive && styles.langNameActive]}>{lang.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
       <View style={styles.footer}>
         <View style={styles.footerBadge}>
           <MaterialIcons name="verified-user" size={14} color={Colors.textSecondary} />
-          <Text style={styles.footerTextBold}>SECURED BY SENTINEL OS</Text>
+          <Text style={styles.footerTextBold}>SECURED BY FIREBASE</Text>
         </View>
         <Text style={styles.footerText}>© 2024 PatrolGuard Systems</Text>
       </View>
 
-      {/* OTP Modal */}
-      <Modal visible={showOTP} transparent animationType="slide">
+      {/* OTP Verification Modal */}
+      <Modal visible={showOTP} transparent animationType="slide" onShow={handleModalOpen}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <TouchableOpacity style={styles.modalClose} onPress={() => setShowOTP(false)}>
@@ -224,24 +206,38 @@ export default function SupervisorLogin() {
 
             <MaterialIcons name="sms" size={48} color={Colors.primary} />
             <Text style={styles.modalTitle}>Enter OTP</Text>
-            <Text style={styles.modalSubtitle}>A 6-digit code has been sent to your registered mobile number</Text>
+            <Text style={styles.modalSubtitle}>
+              6-digit code sent to {phoneNumber}
+            </Text>
 
             <View style={styles.otpRow}>
               {otp.map((digit, index) => (
                 <TextInput
                   key={index}
                   ref={(ref) => (otpRefs.current[index] = ref)}
-                  style={[styles.otpInput, digit ? styles.otpInputFilled : null]}
+                  style={[
+                    styles.otpInput,
+                    digit ? styles.otpInputFilled : null,
+                    otpError ? styles.otpInputError : null,
+                  ]}
                   maxLength={1}
                   keyboardType="number-pad"
                   value={digit}
                   onChangeText={(value) => handleOtpChange(value, index)}
                   onKeyPress={(e) => handleOtpKeyPress(e, index)}
+                  // Prevent tapping later boxes before filling earlier ones
+                  editable={index === 0 || otp[index - 1] !== ''}
                 />
               ))}
             </View>
 
-            <TouchableOpacity style={styles.verifyButton} onPress={handleVerifyOTP} disabled={isLoading}>
+            {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
+
+            <TouchableOpacity
+              style={styles.verifyButton}
+              onPress={handleVerifyOTP}
+              disabled={isLoading}
+            >
               {isLoading ? (
                 <ActivityIndicator color={Colors.textWhite} />
               ) : (
@@ -252,7 +248,7 @@ export default function SupervisorLogin() {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.resendBtn}>
+            <TouchableOpacity style={styles.resendBtn} onPress={handleResend}>
               <Text style={styles.resendText}>Resend OTP</Text>
             </TouchableOpacity>
           </View>
@@ -291,42 +287,34 @@ const styles = StyleSheet.create({
     elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
-  inputWrapper: { marginBottom: 24 },
-  inputLabel: { fontSize: 14, fontWeight: '500', color: Colors.textSecondary, marginBottom: 8, paddingHorizontal: 4 },
+  sectionLabel: {
+    fontSize: 11, fontWeight: '800', color: Colors.textSecondary, letterSpacing: 1.5,
+    marginBottom: 10,
+  },
   inputGroup: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background,
     borderRadius: 12, height: 56, paddingHorizontal: 16,
+    borderWidth: 1, borderColor: Colors.border, marginBottom: 20,
   },
   inputIcon: { marginRight: 12 },
-  input: { flex: 1, height: '100%', fontSize: 16, color: Colors.textPrimary },
-  livenessButton: {
-    width: '100%', height: 160, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.border,
-    borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 24,
-    backgroundColor: Colors.surface, position: 'relative',
-  },
-  livenessButtonDone: { borderColor: Colors.success, borderStyle: 'solid', backgroundColor: '#f0fdf4' },
-  requiredBadge: {
-    position: 'absolute', top: 8, right: 8, backgroundColor: Colors.danger,
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
-  },
-  requiredText: { color: Colors.textWhite, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-  livenessTitle: { fontSize: 16, fontWeight: 'bold', color: Colors.primary, marginTop: 8 },
-  livenessSubtitle: { fontSize: 12, color: Colors.textSecondary, marginTop: 4, textAlign: 'center', paddingHorizontal: 16 },
+  input: { flex: 1, height: '100%', fontSize: 18, color: Colors.textPrimary, letterSpacing: 1 },
   loginButton: {
     flexDirection: 'row', height: 56, backgroundColor: Colors.primary, borderRadius: 12,
-    justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 16,
+    justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 20,
     elevation: 4, shadowColor: Colors.primary, shadowOpacity: 0.3, shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
   },
   loginButtonText: { color: Colors.textWhite, fontSize: 16, fontWeight: 'bold' },
-  voiceHint: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
-    paddingVertical: 12, backgroundColor: '#e8e7ef', borderRadius: 12,
-    borderWidth: 1, borderColor: 'rgba(226, 232, 240, 0.5)',
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.borderLight },
+  dividerText: { fontSize: 11, color: Colors.textMuted, fontWeight: '500' },
+  infoBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: Colors.primaryLight, padding: 12, borderRadius: 10,
   },
-  voiceHintText: { fontSize: 14, fontWeight: '500', color: Colors.textPrimary },
+  infoText: { flex: 1, fontSize: 12, color: Colors.primary, lineHeight: 18 },
   languageSection: { marginTop: 40, alignItems: 'center' },
-  languageTitle: { fontSize: 12, fontWeight: 'bold', color: 'rgba(68, 70, 82, 0.6)', letterSpacing: 2, marginBottom: 16 },
+  languageTitle: { fontSize: 12, fontWeight: 'bold', color: 'rgba(68,70,82,0.6)', letterSpacing: 2, marginBottom: 16 },
   languageOptions: { flexDirection: 'row', gap: 16, flexWrap: 'wrap', justifyContent: 'center' },
   languageOption: { alignItems: 'center', gap: 4 },
   langCircleActive: {
@@ -346,9 +334,7 @@ const styles = StyleSheet.create({
   footerTextBold: { fontSize: 10, fontWeight: '600', letterSpacing: 1, color: Colors.textSecondary },
   footerText: { fontSize: 10, color: Colors.textSecondary, opacity: 0.4 },
   // OTP Modal
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
-  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: {
     backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 32, alignItems: 'center',
@@ -356,17 +342,19 @@ const styles = StyleSheet.create({
   modalClose: { position: 'absolute', top: 16, right: 16, padding: 8 },
   modalTitle: { fontSize: 24, fontWeight: '900', color: Colors.textPrimary, marginTop: 16 },
   modalSubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginTop: 8, marginBottom: 24 },
-  otpRow: { flexDirection: 'row', gap: 10, marginBottom: 32 },
+  otpRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   otpInput: {
     width: 48, height: 56, borderRadius: 12, borderWidth: 2, borderColor: Colors.border,
     textAlign: 'center', fontSize: 24, fontWeight: '700', color: Colors.textPrimary,
     backgroundColor: Colors.background,
   },
   otpInputFilled: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  otpInputError: { borderColor: Colors.danger },
+  errorText: { color: Colors.danger, fontSize: 13, fontWeight: '600', marginBottom: 12 },
   verifyButton: {
     flexDirection: 'row', width: '100%', height: 56, backgroundColor: Colors.primary,
     borderRadius: 12, justifyContent: 'center', alignItems: 'center', gap: 8,
-    elevation: 4, marginBottom: 16,
+    elevation: 4, marginBottom: 12,
   },
   verifyButtonText: { color: Colors.textWhite, fontSize: 16, fontWeight: 'bold' },
   resendBtn: { paddingVertical: 12 },
