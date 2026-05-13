@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { auth, db } from '../config/firebase';
+import { auth } from '../config/firebase';
 import { signInWithPhoneNumber, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const AuthContext = createContext(null);
 
@@ -14,37 +13,23 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Try to get extended profile from Firestore
-        try {
-          const profileRef = doc(db, 'users', firebaseUser.uid);
-          const snap = await getDoc(profileRef);
-          if (snap.exists()) {
-            setUser({ uid: firebaseUser.uid, phone: firebaseUser.phoneNumber, ...snap.data() });
-          } else {
-            // Create a default profile on first login
-            const defaultProfile = {
-              uid: firebaseUser.uid,
-              phone: firebaseUser.phoneNumber,
-              name: 'Supervisor',
-              role: 'Supervisor',
-              site: 'Tech Park',
-              shift: '08:00 AM - 04:00 PM',
-              createdAt: serverTimestamp(),
-            };
-            await setDoc(profileRef, defaultProfile);
-            setUser(defaultProfile);
-          }
-        } catch (e) {
-          // Firestore offline fallback
-          setUser({
-            uid: firebaseUser.uid,
-            phone: firebaseUser.phoneNumber,
-            name: 'Supervisor',
-            role: 'Supervisor',
-            site: 'Tech Park',
-            shift: '08:00 AM - 04:00 PM',
-          });
-        }
+        // Firebase Auth is successful.
+        // We no longer use Firestore for the user profile.
+        // In a full implementation, you would fetch the user profile from your MySQL backend here:
+        // const token = await firebaseUser.getIdToken();
+        // const res = await fetch('http://192.168.1.6:3000/api/auth/profile', { headers: { Authorization: `Bearer ${token}` } });
+        // const profile = await res.json();
+        
+        // For the POC, we construct a default profile object natively.
+        const userProfile = {
+          uid: firebaseUser.uid,
+          phone: firebaseUser.phoneNumber,
+          name: 'Supervisor',
+          role: 'Supervisor',
+          site: 'Tech Park',
+          shift: '08:00 AM - 04:00 PM',
+        };
+        setUser(userProfile);
       } else {
         // No Firebase session — check legacy mock session in storage
         const stored = await AsyncStorage.getItem('user_session');

@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Real Firebase config – patrol-incident-application
@@ -22,9 +21,6 @@ export const app = initializeApp(firebaseConfig);
 export const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });
-
-// Firestore – for user profiles, patrol sessions, spot configs
-export const db = getFirestore(app);
 
 // Storage – for evidence photos
 export const storage = getStorage(app);
