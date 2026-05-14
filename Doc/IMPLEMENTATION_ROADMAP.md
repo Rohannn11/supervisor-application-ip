@@ -1,84 +1,100 @@
 # Patrol Incident Reporting System - Implementation Roadmap
 
-This document outlines the current state of the Patrol Incident Reporting System frontend, detailing completed features, upcoming backend integration tasks, and the required environment configuration for the incoming development team.
+This document outlines the tasks that have been completed and those that remain for the proper end-to-end implementation of the system. It also serves as a handover guide for running the application and managing environment variables.
 
 ---
 
-## 1. Current State: Completed Features (Frontend & UI)
-The mobile application's frontend is fully structured with responsive React Native components, local persistence, and offline-capable UX flows.
+## 1. Done: Completed Tasks & Implementations
 
-### Authentication & Supervisor Flow
-- **UI/UX:** Complete login screen with dynamic theming.
-- **Mock Authentication Pipeline:** Implemented an end-to-end "Proof of Concept" mock flow that perfectly simulates Firebase Phone Authentication (Employee ID `RJ123` fast-tracks to the OTP test sequence).
-- **Environment Preparedness:** Firebase SDK is linked and ready; can easily transition to real Firebase Auth by re-enabling standard `signInWithPhoneNumber` logic when backend provisioning is finalized.
+- **SQL TiDB Based Database:** Fully configured for handling relational data including employee master, shift data, checklist responses, and basic reporting. SQL is robustly handling relational architectures; *do not use Firebase for relational data, as it is not scalable.*
+- **Firebase:** Integrated primarily for robust Authentication. (Later to be used for paid SMS features or Twilio depending on future preferences).
+- **The Entire UI:** Complete supervisor application user interface including offline-capable UX flows, dynamic theming (Dark/Light mode), and robust navigation.
+- **Geofencing and Location Pipeline:** Configured with React Native Maps, capable of displaying patrol boundaries and validating spot proximities before check-ins.
+- **Checklist Pipeline:** Dynamic tri-state (Yes/No/N/A) question handling with the ability to attach photo evidence to responses.
+- **Occurrence Pipeline:** Fully integrated frontend-to-SQL logic ensuring accurate tracking of incidents, including `user_id`, `shift_id`, GPS coordinates, and mapped image references.
 
+---
 
-### Core Patrol & Incident Workflows
-- **Checklist Hub & Spot Validation:** QR scanning is simulated and integrated before checking into a patrol spot.
-- **Dynamic Checklists:** Checklists support tri-state (Yes/No/N/A) functionality with image attachment capabilities.
-- **Occurrence Reporting:** Supervisors can submit checklists with or without logged occurrences. Incident tracking allows multiple photo evidence attachments.
-- **Timeouts & Safety:** All API simulation points (e.g., `submitToBackend`) are wrapped with a `5000ms` strict timeout (`AbortController`) to ensure the UI never hangs for 90 seconds if the network/backend is unreachable.
+## 2. To-Do: Pending Tasks for System Completion
 
-### Persistent State & Settings
-- **Context API & AsyncStorage:** Manages Global Themes (Light/Dark mode), Notification Preferences, Geofence Polygons, and Session Locking reliably.
-- **SQL TIDB Based database** For handling of relational data like employee master, shift data and basic reporting. **Do not use Firebase for relational data, it is not scalable.**
-- **firebase** for authentication and later for paid sms featuring / twilio depends on the preference and database aspect.
---
-
-## 2. To-Do: Backend Integration & System Completion
-The following infrastructure components must be connected and built out to convert the mock application into a production-ready system.
-
-### Database Architecture
 - [ ] **MongoDB Configuration:**
-  - Need to establish the Mongoose schemas and database clusters to store:
-- [ ] **SQL Server (Optional/If Required):**
-  - If analytics or specific metrics are required to be kept relational, link Firebase SQL Connect or a standard PostgreSQL instance for shift data.
-
-### Media & File Storage
-- [ ] **Cloudinary Integration:**
-  - Replace the current local URI image handling (`expo-image-picker`) with direct uploads to **Cloudinary**.
-  - The API should accept the base64 or multipart/form-data from the React Native app, upload it to Cloudinary, and return the secure URL to save into MongoDB.
-
-### Security & API Logic
-- [ ] **Real Authentication Endpoints:**
-  - Build out the `/api/auth/resolve-employee` endpoint to correctly look up the Employee ID and return the masked mobile number.
-- [ ] **Patrol Endpoints:**
-  - Create the POST `/api/patrol/submit` endpoint to accept checklist responses and occurrence reports.
+  - Needs to be configured to handle large-scale, unstructured document logs if the SQL architecture faces limitations. MongoDB can be used for deep analytics or raw GPS tracking histories.
+- [ ] **Cloudinary Integration (Data Storage):**
+  - Implement direct uploads for image handling. Replace the local URI references with Cloudinary API logic.
+  - The API should accept base64 or multipart/form-data from the React Native app, upload to Cloudinary, and return a secure HTTPS URL to save into the SQL DB.
+- [ ] **Real Authentication API Connections:**
+  - Build out the `/api/auth/resolve-employee` endpoint on the backend to correctly look up Employee IDs against the SQL TiDB and return masked mobile numbers for Firebase OTP.
 
 ---
 
-## 3. Environment Variables (.env Setup)
+## 3. Environment Variables & Credentials Required
 
-To run this application, create a `.env` file in the root of the project. **Do not commit your `.env` file to version control.** 
+To run this application, you must create a `.env` file in the root directory. **Do not commit this file to version control.**
 
-Below is the required schema. Ensure you populate the values from your respective Firebase/Cloudinary/Backend consoles.
+### Backend Configuration
+*   **Variable:** `EXPO_PUBLIC_API_BASE`
+    *   **Meaning:** The base URL where your Node.js backend is running.
+    *   **Value:** e.g., `http://192.168.1.5:3000` (Use your local network IP for testing on physical devices, NOT localhost).
+    *   **How to get:** Run `ipconfig` (Windows) or `ifconfig` (Mac/Linux) to find your local IPv4 address.
+*   **Variable:** `EXPO_PUBLIC_MOCK_TOKEN`
+    *   **Meaning:** A placeholder token used for Proof-of-Concept API headers.
+    *   **Value:** `mock-token-12345`
 
-```env
-# ── BACKEND CONFIGURATION ──
-# The base URL of your running backend (Node.js/Express or similar)
-# During local development, use your machine's local IP (e.g., http://192.168.1.x:3000)
-EXPO_PUBLIC_API_BASE=http://<YOUR_BACKEND_IP>:3000
+### Firebase Configuration (Web SDK for React Native)
+*   **Variable:** `EXPO_PUBLIC_FIREBASE_API_KEY`
+    *   **Meaning:** The public API key to identify your app to Firebase services.
+    *   **Value:** String (e.g., `AIzaSy...`)
+*   **Variable:** `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
+    *   **Meaning:** The domain used for Firebase Auth.
+    *   **Value:** `<PROJECT_ID>.firebaseapp.com`
+*   **Variable:** `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
+    *   **Meaning:** Your unique Firebase project identifier.
+    *   **Value:** e.g., `patrol-incident-application`
+*   **Variable:** `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
+    *   **Meaning:** Default Cloud Storage bucket for Firebase.
+    *   **Value:** `<PROJECT_ID>.firebasestorage.app`
+*   **Variable:** `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+    *   **Meaning:** ID used for Cloud Messaging.
+    *   **Value:** Numeric string (e.g., `225044323271`)
+*   **Variable:** `EXPO_PUBLIC_FIREBASE_APP_ID`
+    *   **Meaning:** Your specific Web App's unique ID within Firebase.
+    *   **Value:** String (e.g., `1:225044...:web:...`)
 
-# Optional mock token used for POC headers. Update to use real JWT implementation.
-EXPO_PUBLIC_MOCK_TOKEN=mock-token-12345
-
-# ── FIREBASE CONFIGURATION (Web SDK) ──
-# Obtain these from Firebase Console -> Project Settings -> General -> Web Apps
-EXPO_PUBLIC_FIREBASE_API_KEY=<YOUR_FIREBASE_API_KEY>
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=<YOUR_PROJECT>.firebaseapp.com
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=<YOUR_PROJECT_ID>
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=<YOUR_PROJECT>.firebasestorage.app
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=<YOUR_SENDER_ID>
-EXPO_PUBLIC_FIREBASE_APP_ID=<YOUR_APP_ID>
-EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID=<YOUR_MEASUREMENT_ID>
-
-# ── CLOUDINARY / DATABASE (To be added on backend .env, NOT Expo) ──
-# Note: Database strings and Cloudinary secrets should only exist on your BACKEND SERVER (.env).
-# Do not expose them in this React Native EXPO_PUBLIC environment.
-```
-
-### How to obtain Firebase Credentials:
+**How to get Firebase values:**
 1. Go to the [Firebase Console](https://console.firebase.google.com/).
 2. Select your project.
 3. Click the **Gear Icon** next to "Project Overview" and select **Project Settings**.
-4. Scroll down to **Your apps**. If a Web App exists, copy the `firebaseConfig` object values into the respective `EXPO_PUBLIC_FIREBASE_*` variables above. If not, click the Web icon (`</>`) to create one.
+4. Scroll down to **Your apps**. Copy the `firebaseConfig` object values into their respective variables.
+
+### Database / Secret Keys (Backend ONLY)
+**Important:** Your `MYSQL_URL` (TiDB connection string) and Cloudinary secrets should NEVER be placed in the React Native `.env` file. They must only exist on the backend server's environment file.
+
+---
+
+## 4. How to Run the Application
+
+### Prerequisites
+- Install **Node.js** (v18 or higher recommended).
+- Install **Git**.
+- Download **Expo Go** on your physical iOS/Android device.
+
+### Step 1: Start the Backend (MySQL API)
+1. Open a terminal and navigate to the backend folder:
+   `cd backend`
+2. Install dependencies:
+   `npm install`
+3. Create a `.env` file inside the `/backend` folder with your TiDB connection string (`MYSQL_URL="..."`).
+4. Start the server:
+   `node index.js`
+   *(It should log: "Connected to MySQL (TiDB) successfully")*
+
+### Step 2: Start the Frontend (React Native / Expo)
+1. Open a **new** terminal and navigate to the root project folder:
+   `cd patrol-incident-reporting-system`
+2. Install frontend dependencies:
+   `npm install`
+3. Ensure your `.env` file in the root is filled out correctly (as described in section 3).
+4. Start the Expo bundler, clearing the cache to ensure new env variables load:
+   `npx expo start -c`
+5. Scan the generated QR code using your phone's camera (iOS) or the Expo Go app (Android).
+6. **Login Testing:** Use `RJ123` as the Employee ID to trigger the testing workflow.
