@@ -10,12 +10,15 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Colors } from '../src/theme/colors';
 import { usePatrol } from '../src/context/PatrolContext';
+import { useAuth } from '../src/context/AuthContext';
 
 export default function ReportOccurrences() {
   const navigation = useNavigation();
   const route = useRoute();
   const { spotId, spotName, globalOccurrenceStart = 1 } = route.params || {};
   const { markSpotDone } = usePatrol();
+  const { user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Start with empty list — occurrences are optional
   const [occurrences, setOccurrences] = useState([]);
@@ -83,7 +86,36 @@ export default function ReportOccurrences() {
     }));
   };
 
-  const handleSubmit = () => {
+  const submitToBackend = async (validOccurrences) => {
+    setIsSubmitting(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const payload = {
+        shiftId: user?.shift || 'SH-1024',
+        spotId,
+        occurrences: validOccurrences
+      };
+      
+      await fetch(`${process.env.EXPO_PUBLIC_API_BASE}/api/occurrences`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${process.env.EXPO_PUBLIC_MOCK_TOKEN}` 
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+    } catch (e) {
+      console.warn('Occurrence API Error (continuing for POC):', e.name === 'AbortError' ? 'Timeout' : e.message);
+    } finally {
+      clearTimeout(timeoutId);
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async () => {
     // Empty list is valid (occurrences are optional)
     const invalid = occurrences.find(o => !o.description.trim() && o.evidence.length === 0);
     if (invalid) {
@@ -93,6 +125,12 @@ export default function ReportOccurrences() {
       );
       return;
     }
+
+    const validOccurrences = occurrences.filter(o => o.description.trim() || o.evidence.length > 0);
+    if (validOccurrences.length > 0) {
+      await submitToBackend(validOccurrences);
+    }
+
     // Mark spot done and go back to ChecklistHub
     if (spotId) markSpotDone(spotId);
     navigation.navigate('ChecklistHub');

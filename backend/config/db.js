@@ -93,6 +93,29 @@ const initSchema = async (dbPool) => {
     `);
 
     await dbPool.execute(`
+      CREATE TABLE IF NOT EXISTS occurrences (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id VARCHAR(50),
+        shift_id VARCHAR(50),
+        spot_id VARCHAR(100),
+        time_logged VARCHAR(50),
+        gps_lat DECIMAL(10, 8),
+        gps_lng DECIMAL(11, 8),
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await dbPool.execute(`
+      CREATE TABLE IF NOT EXISTS occurrence_evidence (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        occurrence_id INT,
+        image_ref VARCHAR(255),
+        FOREIGN KEY (occurrence_id) REFERENCES occurrences(id) ON DELETE CASCADE
+      );
+    `);
+
+    await dbPool.execute(`
       CREATE TABLE IF NOT EXISTS patrol_sessions (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id VARCHAR(50),

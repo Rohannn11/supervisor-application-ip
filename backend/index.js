@@ -136,10 +136,40 @@ app.post('/api/patrol/submit', verifyToken, async (req, res) => {
 
 // 3. Submit occurrence logs
 app.post('/api/occurrences', verifyToken, async (req, res) => {
-  const { occurrences, shiftId } = req.body;
-  console.log(`[OCCURRENCE] Received ${occurrences?.length || 0} occurrences from ${req.user.uid}`);
-  // TODO: Save to MongoDB
-  res.status(201).json({ success: true, message: 'Occurrences logged successfully.' });
+  const { occurrences, shiftId, spotId } = req.body;
+  const uid = req.user.uid;
+  console.log(`[OCCURRENCE] Received ${occurrences?.length || 0} occurrences from ${uid} for spot ${spotId}`);
+  
+  try {
+    const pool = getPool();
+    if (pool && occurrences && occurrences.length > 0) {
+      for (const occ of occurrences) {
+        // Insert occurrence record
+        const [result] = await pool.execute(
+          'INSERT INTO occurrences (user_id, shift_id, spot_id, time_logged, gps_lat, gps_lng, description) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [uid, shiftId || null, spotId || null, occ.time || null, occ.gps_lat || null, occ.gps_lng || null, occ.description || '']
+        );
+        
+        const occurrenceId = result.insertId;
+        
+        // Insert evidence records if any
+        if (occ.evidence && occ.evidence.length > 0) {
+          for (const ev of occ.evidence) {
+            await pool.execute(
+              'INSERT INTO occurrence_evidence (occurrence_id, image_ref) VALUES (?, ?)',
+              [occurrenceId, ev]
+            );
+          }
+        }
+      }
+      console.log('Saved occurrences and evidence to MySQL.');
+    }
+    
+    res.status(201).json({ success: true, message: 'Occurrences logged successfully.' });
+  } catch (error) {
+    console.error('Error saving occurrences:', error);
+    res.status(500).json({ success: false, error: 'Database error' });
+  }
 });
 
 // 4. Trigger SOS alert
