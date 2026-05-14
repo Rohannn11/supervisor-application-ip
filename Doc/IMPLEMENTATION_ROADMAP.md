@@ -12,6 +12,7 @@ The mobile application's frontend is fully structured with responsive React Nati
 - **Mock Authentication Pipeline:** Implemented an end-to-end "Proof of Concept" mock flow that perfectly simulates Firebase Phone Authentication (Employee ID `RJ123` fast-tracks to the OTP test sequence).
 - **Environment Preparedness:** Firebase SDK is linked and ready; can easily transition to real Firebase Auth by re-enabling standard `signInWithPhoneNumber` logic when backend provisioning is finalized.
 
+
 ### Core Patrol & Incident Workflows
 - **Checklist Hub & Spot Validation:** QR scanning is simulated and integrated before checking into a patrol spot.
 - **Dynamic Checklists:** Checklists support tri-state (Yes/No/N/A) functionality with image attachment capabilities.
@@ -20,8 +21,9 @@ The mobile application's frontend is fully structured with responsive React Nati
 
 ### Persistent State & Settings
 - **Context API & AsyncStorage:** Manages Global Themes (Light/Dark mode), Notification Preferences, Geofence Polygons, and Session Locking reliably.
-
----
+- **SQL TIDB Based database** For handling of relational data like employee master, shift data and basic reporting. **Do not use Firebase for relational data, it is not scalable.**
+- **firebase** for authentication and later for paid sms featuring / twilio depends on the preference and database aspect.
+--
 
 ## 2. To-Do: Backend Integration & System Completion
 The following infrastructure components must be connected and built out to convert the mock application into a production-ready system.
@@ -29,9 +31,6 @@ The following infrastructure components must be connected and built out to conve
 ### Database Architecture
 - [ ] **MongoDB Configuration:**
   - Need to establish the Mongoose schemas and database clusters to store:
-    - **Patrol Checklists:** Questions, user responses, and status.
-    - **Incidents/Occurrences:** Time, GPS location, textual description, and photo URIs.
-    - **Employee Master:** Employee ID to phone number mapping.
 - [ ] **SQL Server (Optional/If Required):**
   - If analytics or specific metrics are required to be kept relational, link Firebase SQL Connect or a standard PostgreSQL instance for shift data.
 
