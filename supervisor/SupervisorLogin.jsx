@@ -5,8 +5,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { useAuth } from '../src/context/AuthContext';
 import { useAppContext } from '../src/context/AppContext';
+import { auth } from '../src/config/firebase';
 import { Colors } from '../src/theme/colors';
 
 // Backend URL – from environment variables
@@ -23,6 +25,9 @@ export default function SupervisorLogin() {
   const [otpError, setOtpError] = useState('');
   const [isSending, setIsSending] = useState(false);
 
+  const recaptchaVerifier = useRef(null);
+  const firebaseConfig = auth.app.options;
+
   const hiddenInputRef = useRef(null);
 
   const inputRefs = useRef([]);
@@ -33,22 +38,31 @@ export default function SupervisorLogin() {
   }, [otpArray]);
 
   const handleOtpChange = (text, index) => {
-    const digit = text.replace(/[^0-9]/g, '').slice(-1); // take last char only
+    // Only allow one digit
+    const digit = text.replace(/[^0-9]/g, '').slice(-1);
+    
     const next = [...otpArray];
     next[index] = digit;
     setOtpArray(next);
     setOtpError('');
+
+    // AUTO INCREMENT / FOCUS NEXT
     if (digit && index < 5) {
-      inputRefs.current[index + 1]?.focus();
+      setTimeout(() => {
+        inputRefs.current[index + 1]?.focus();
+      }, 50); // Small delay to ensure state update/render doesn't block focus
     }
   };
 
   const handleOtpKeyPress = (e, index) => {
-    if (e.nativeEvent.key === 'Backspace' && !otpArray[index] && index > 0) {
-      const next = [...otpArray];
-      next[index - 1] = '';
-      setOtpArray(next);
-      inputRefs.current[index - 1]?.focus();
+    // BACKSPACE / SEQUENTIAL BACKWARD
+    if (e.nativeEvent.key === 'Backspace') {
+      if (!otpArray[index] && index > 0) {
+        const next = [...otpArray];
+        next[index - 1] = '';
+        setOtpArray(next);
+        inputRefs.current[index - 1]?.focus();
+      }
     }
   };
 
@@ -90,9 +104,12 @@ export default function SupervisorLogin() {
       }
 
       setResolvedPhone(phone);
+      
+      // Use real recaptcha verifier
       const result = await sendOTP(phone, recaptchaVerifier.current);
+      
       if (result.success) {
-        setOtpValue('');
+        setOtpArray(['', '', '', '', '', '']); // Clear boxes
         setOtpError('');
         setShowOTP(true);
       } else {
@@ -305,6 +322,13 @@ export default function SupervisorLogin() {
           </View>
         </View>
       </Modal>
+
+      {/* Firebase reCAPTCHA Verifier Modal */}
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={firebaseConfig}
+        attemptInvisible={true}
+      />
     </SafeAreaView>
   );
 }

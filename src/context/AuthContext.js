@@ -40,38 +40,58 @@ export function AuthProvider({ children }) {
     return () => unsubscribe();
   }, []);
 
-  // Step 1: Mock send OTP (Bypasses Firebase)
+  // Step 1: Real Firebase Phone Auth with POC Fallback
   const sendOTP = useCallback(async (phoneNumber, recaptchaVerifier) => {
     setIsLoading(true);
     try {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // For POC, we just set a fake confirmation result object so the UI moves forward
-      setConfirmationResult({ phoneNumber });
+      // 1. Try real Firebase Auth first
+      console.log(`[Auth] Attempting real Firebase OTP for ${phoneNumber}`);
+      const confirmation = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+      setConfirmationResult(confirmation);
       setIsLoading(false);
       return { success: true };
     } catch (error) {
-      console.error('[Mock] sendOTP error:', error);
+      console.warn('[Auth] Real Firebase OTP failed:', error.code, error.message);
+      
+      // 2. POC FALLBACK: If billing is disabled OR it's a test number, use mock mode
+      if (error.code === 'auth/billing-not-enabled' || phoneNumber.includes('9999999999')) {
+        console.log('[Auth] Entering Mock Mode (Billing Disabled/Test Number)');
+        setConfirmationResult({
+          mock: true,
+          phoneNumber,
+          confirm: async (code) => {
+            if (code === '123456') {
+              return { 
+                user: { 
+                  uid: 'MOCK_' + Date.now(), 
+                  phoneNumber,
+                  isMock: true 
+                } 
+              };
+            }
+            throw { code: 'auth/invalid-verification-code', message: 'Invalid OTP code.' };
+          }
+        });
+        setIsLoading(false);
+        return { success: true };
+      }
+
       setIsLoading(false);
       return { success: false, error: error.message };
     }
   }, []);
 
-  // Step 2: Mock confirm OTP code
+  // Step 2: Confirm OTP code (works for both Real and Mock)
   const confirmOTP = useCallback(async (otpCode) => {
     if (!confirmationResult) return { success: false, error: 'No pending OTP session.' };
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // MOCK POC: Accept "123456" as the valid OTP
-      if (otpCode !== '123456') {
-        throw new Error('Invalid OTP code.');
-      }
+      const result = await confirmationResult.confirm(otpCode);
+      const firebaseUser = result.user;
 
       const userProfile = {
-        uid: 'MOCK_USER_1042',
-        phone: confirmationResult.phoneNumber,
+        uid: firebaseUser.uid,
+        phone: firebaseUser.phoneNumber || confirmationResult.phoneNumber,
         name: 'Supervisor',
         role: 'Supervisor',
         site: 'Tech Park',
@@ -83,9 +103,12 @@ export function AuthProvider({ children }) {
       setIsLoading(false);
       return { success: true };
     } catch (error) {
-      console.error('[Mock] confirmOTP error:', error);
+      console.error('[Auth] Confirmation error:', error);
       setIsLoading(false);
-      return { success: false, error: 'Invalid OTP. Please enter 123456.' };
+      const msg = error.code === 'auth/invalid-verification-code' 
+        ? 'Invalid OTP. Please try again.' 
+        : error.message;
+      return { success: false, error: msg };
     }
   }, [confirmationResult]);
 
