@@ -5,10 +5,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { useAuth } from '../src/context/AuthContext';
 import { useAppContext } from '../src/context/AppContext';
-import { auth } from '../src/config/firebase';
 import { Colors } from '../src/theme/colors';
 
 // Backend URL – from environment variables
@@ -24,9 +22,7 @@ export default function SupervisorLogin() {
   const [otpValue, setOtpValue] = useState('');   // single string, max 6 chars
   const [otpError, setOtpError] = useState('');
   const [isSending, setIsSending] = useState(false);
-
-  const recaptchaVerifier = useRef(null);
-  const firebaseConfig = auth.app.options;
+  const [captchaStatus, setCaptchaStatus] = useState(''); // 'verifying', 'done', ''
 
   const hiddenInputRef = useRef(null);
 
@@ -73,44 +69,32 @@ export default function SupervisorLogin() {
       Alert.alert('Required', 'Please enter your Employee ID.');
       return;
     }
+    
+    // STRICT POC: Only allow RJ123
+    if (trimmed !== 'RJ123') {
+      Alert.alert('Not Found', `Employee ID "${trimmed}" is not registered. For this POC, please use RJ123.`);
+      return;
+    }
+
     setIsSending(true);
+    setCaptchaStatus('verifying');
+
     try {
-      // Ask backend for the phone number linked to this employee ID
-      let phone = null;
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/resolve-employee`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ employeeId: trimmed }),
-        });
-        const data = await res.json();
-        if (res.ok && data.phone) {
-          phone = data.phone; // e.g. "+919876543210"
-        }
-      } catch (netErr) {
-        console.warn('[Login] Backend unavailable, using hardcoded test map for POC.');
-      }
+      // Fake Captcha Delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setCaptchaStatus('done');
+      await new Promise(resolve => setTimeout(resolve, 500)); // Brief pause on 'done'
 
-      // ── POC FALLBACK: if backend is down, use test numbers ───────────────
-      if (!phone) {
-        const testMap = { 'RJ123': '+919999999999' }; // matches Firebase test number
-        phone = testMap[trimmed] || null;
-      }
-
-      if (!phone) {
-        Alert.alert('Not Found', `Employee ID "${trimmed}" is not registered. Please contact your admin.`);
-        setIsSending(false);
-        return;
-      }
-
+      const phone = '+919999999999';
       setResolvedPhone(phone);
       
-      // Use real recaptcha verifier
-      const result = await sendOTP(phone, recaptchaVerifier.current);
+      // Call Context sendOTP (which is already set up to fast-track mock mode)
+      const result = await sendOTP(phone);
       
       if (result.success) {
         setOtpArray(['', '', '', '', '', '']); // Clear boxes
         setOtpError('');
+        setCaptchaStatus('');
         setShowOTP(true);
       } else {
         Alert.alert('OTP Failed', result.error || 'Could not send OTP. Try again.');
@@ -119,6 +103,7 @@ export default function SupervisorLogin() {
       Alert.alert('Error', e.message || 'Something went wrong.');
     } finally {
       setIsSending(false);
+      setCaptchaStatus('');
     }
   }, [employeeId, sendOTP]);
 
@@ -198,7 +183,12 @@ export default function SupervisorLogin() {
               disabled={isSending || isLoading}
             >
               {isSending || isLoading ? (
-                <ActivityIndicator color={Colors.textWhite} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <ActivityIndicator color={Colors.textWhite} size="small" />
+                  <Text style={{ color: Colors.textWhite, fontSize: 16, fontWeight: '600' }}>
+                    {captchaStatus === 'verifying' ? 'Verifying Captcha...' : captchaStatus === 'done' ? 'Captcha Verified! ✅' : 'Sending OTP...'}
+                  </Text>
+                </View>
               ) : (
                 <>
                   <Text style={styles.loginButtonText}>Send OTP</Text>
@@ -322,13 +312,6 @@ export default function SupervisorLogin() {
           </View>
         </View>
       </Modal>
-
-      {/* Firebase reCAPTCHA Verifier Modal */}
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={firebaseConfig}
-        attemptInvisible={true}
-      />
     </SafeAreaView>
   );
 }

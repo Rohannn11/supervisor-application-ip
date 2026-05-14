@@ -76,6 +76,9 @@ export default function PatrolChecklist() {
   /** Submit helpers */
   const submitToBackend = async (answeredItems) => {
     setIsSubmitting(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     try {
       const payload = {
         shiftId: user?.shift || 'SH-1024', spotId, spotName,
@@ -88,10 +91,12 @@ export default function PatrolChecklist() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.EXPO_PUBLIC_MOCK_TOKEN}` },
         body: JSON.stringify(payload),
+        signal: controller.signal
       });
     } catch (e) {
-      console.warn('API Error (continuing for POC):', e);
+      console.warn('API Error (continuing for POC):', e.name === 'AbortError' ? 'Timeout' : e.message);
     } finally {
+      clearTimeout(timeoutId);
       setIsSubmitting(false);
     }
   };
