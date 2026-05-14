@@ -73,54 +73,56 @@ export default function PatrolChecklist() {
     }
   };
 
-  /**
-   * UNIFIED SUBMIT:
-   * 1. POSTs checklist responses to backend
-   * 2. Navigates to ReportOccurrences with globalOccurrenceStart
-   * ReportOccurrences will mark the spot done and return to ChecklistHub.
-   */
-  const handleSubmit = async () => {
-    const answeredItems = items.filter(i => i.status !== null);
-    if (answeredItems.length === 0) {
-      Alert.alert('Incomplete', 'Please answer at least one checklist item before submitting.');
-      return;
-    }
-
+  /** Submit helpers */
+  const submitToBackend = async (answeredItems) => {
     setIsSubmitting(true);
     try {
       const payload = {
-        shiftId: user?.shift || 'SH-1024',
-        spotId,
-        spotName,
+        shiftId: user?.shift || 'SH-1024', spotId, spotName,
         checklistResponses: answeredItems.map(i => ({
           id: i.id, title: i.question, status: i.status,
           remarks: i.remark, photoUri: i.uploadUri,
-        })),
-        location: null,
+        })), location: null,
       };
       await fetch(`${process.env.EXPO_PUBLIC_API_BASE}/api/patrol/submit`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${process.env.EXPO_PUBLIC_MOCK_TOKEN}` 
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.EXPO_PUBLIC_MOCK_TOKEN}` },
         body: JSON.stringify(payload),
       });
     } catch (e) {
       console.warn('API Error (continuing for POC):', e);
     } finally {
       setIsSubmitting(false);
-      navigation.navigate('ReportOccurrences', {
-        spotId,
-        spotName,
-        globalOccurrenceStart,
-      });
     }
+  };
+
+  // Submit and go to occurrences screen
+  const handleSubmitWithOccurrences = async () => {
+    const answeredItems = items.filter(i => i.status !== null);
+    if (answeredItems.length === 0) {
+      Alert.alert('Incomplete', 'Please answer at least one checklist item before submitting.');
+      return;
+    }
+    await submitToBackend(answeredItems);
+    navigation.navigate('ReportOccurrences', { spotId, spotName, globalOccurrenceStart });
+  };
+
+  // Submit and skip occurrences
+  const handleSubmitWithout = async () => {
+    const answeredItems = items.filter(i => i.status !== null);
+    if (answeredItems.length === 0) {
+      Alert.alert('Incomplete', 'Please answer at least one checklist item before submitting.');
+      return;
+    }
+    await submitToBackend(answeredItems);
+    if (spotId) markSpotDone(spotId);
+    navigation.navigate('ChecklistHub');
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialIcons name="arrow-back" size={24} color={Colors.textPrimary} />
@@ -200,10 +202,10 @@ export default function PatrolChecklist() {
             </View>
           ))}
 
-          {/* Single unified submit → goes to Occurrences screen */}
+          {/* Two submit options: with or without occurrences */}
           <TouchableOpacity
             style={styles.submitButton}
-            onPress={handleSubmit}
+            onPress={handleSubmitWithOccurrences}
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -215,8 +217,18 @@ export default function PatrolChecklist() {
               </>
             )}
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={handleSubmitWithout}
+            disabled={isSubmitting}
+          >
+            <MaterialIcons name="check" size={20} color={Colors.primary} />
+            <Text style={styles.skipButtonText}>Submit Without Occurrences</Text>
+          </TouchableOpacity>
+
           <Text style={styles.submitHint}>
-            Saves checklist and lets you report any incidents at this spot.
+            Occurrences are optional — skip if nothing unusual was observed.
           </Text>
 
           <View style={{ height: 40 }} />
@@ -294,6 +306,12 @@ const styles = StyleSheet.create({
   },
   submitButtonText: { color: Colors.textWhite, fontSize: 16, fontWeight: 'bold' },
   submitHint: {
-    textAlign: 'center', fontSize: 12, color: Colors.textMuted, lineHeight: 18,
+    textAlign: 'center', fontSize: 12, color: Colors.textMuted, lineHeight: 18, marginTop: 8,
   },
+  skipButton: {
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8,
+    borderWidth: 2, borderColor: Colors.primary, borderRadius: 14, height: 56,
+    marginBottom: 10, marginTop: 4,
+  },
+  skipButtonText: { color: Colors.primary, fontSize: 15, fontWeight: '700' },
 });

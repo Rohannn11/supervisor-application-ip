@@ -1,19 +1,30 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../src/context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 import LanguageSwitcher from '../src/components/LanguageSwitcher';
+import { useTheme } from '../src/theme/useTheme';
 import { Colors } from '../src/theme/colors';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
+  const navigation = useNavigation();
+  const C = useTheme();
+  const [metrics, setMetrics] = useState({ patrolsThisMonth: 0, checklistCompletion: 0, incidentsReported: 0 });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Metrics require real Firebase auth token — skip gracefully in POC
+    setLoading(false);
+  }, [user]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Profile</Text>
-        <TouchableOpacity style={styles.settingsBtn}>
+        <TouchableOpacity style={styles.settingsBtn} onPress={() => navigation.navigate('Settings')}>
           <MaterialIcons name="settings" size={24} color={Colors.textLight} />
         </TouchableOpacity>
       </View>
@@ -71,20 +82,25 @@ export default function ProfileScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Shift Summary</Text>
         </View>
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>47</Text>
-            <Text style={styles.statLabel}>Patrols{'\n'}This Month</Text>
+        
+        {loading ? (
+          <ActivityIndicator size="large" color={Colors.primary} style={{ marginVertical: 20 }} />
+        ) : (
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{metrics.patrolsThisMonth}</Text>
+              <Text style={styles.statLabel}>Patrols{'\n'}This Month</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={[styles.statValue, { color: Colors.success }]}>{metrics.checklistCompletion}%</Text>
+              <Text style={styles.statLabel}>Checklist{'\n'}Completion</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={[styles.statValue, { color: Colors.danger }]}>{metrics.incidentsReported}</Text>
+              <Text style={styles.statLabel}>Incidents{'\n'}Reported</Text>
+            </View>
           </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: Colors.success }]}>98%</Text>
-            <Text style={styles.statLabel}>Checklist{'\n'}Completion</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: Colors.danger }]}>3</Text>
-            <Text style={styles.statLabel}>Incidents{'\n'}Reported</Text>
-          </View>
-        </View>
+        )}
 
         {/* Language */}
         <View style={styles.langSection}>

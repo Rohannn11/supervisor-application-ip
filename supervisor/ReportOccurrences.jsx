@@ -17,16 +17,8 @@ export default function ReportOccurrences() {
   const { spotId, spotName, globalOccurrenceStart = 1 } = route.params || {};
   const { markSpotDone } = usePatrol();
 
-  // Occurrences start at globalOccurrenceStart for this spot
-  const [occurrences, setOccurrences] = useState([
-    {
-      localIndex: 1,
-      globalIndex: globalOccurrenceStart,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      description: '',
-      evidence: [],
-    },
-  ]);
+  // Start with empty list — occurrences are optional
+  const [occurrences, setOccurrences] = useState([]);
 
   const addOccurrence = () => {
     const nextLocal = occurrences.length + 1;
@@ -92,11 +84,12 @@ export default function ReportOccurrences() {
   };
 
   const handleSubmit = () => {
+    // Empty list is valid (occurrences are optional)
     const invalid = occurrences.find(o => !o.description.trim() && o.evidence.length === 0);
     if (invalid) {
       Alert.alert(
-        'Incomplete',
-        `Occurrence ${invalid.globalIndex} needs either a description or at least one photo.`
+        'Incomplete Occurrence',
+        `Occurrence ${invalid.globalIndex} has no description or photo. Remove it or add details.`
       );
       return;
     }
@@ -123,7 +116,9 @@ export default function ReportOccurrences() {
           <View style={styles.siteInfo}>
             <Text style={styles.siteTitle}>Occurrence Report</Text>
             <Text style={styles.siteSub}>
-              Document anything unusual observed at {spotName || 'this spot'}.
+              {occurrences.length === 0
+                ? `No occurrences added yet. Tap "Add Occurrence" if you observed something unusual at ${spotName || 'this spot'}, or submit to complete.`
+                : `Document anything unusual observed at ${spotName || 'this spot'}.`}
             </Text>
           </View>
 

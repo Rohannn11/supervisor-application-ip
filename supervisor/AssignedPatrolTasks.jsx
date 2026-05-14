@@ -6,38 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import GPSStatusBar from '../src/components/GPSStatusBar';
 import { Colors } from '../src/theme/colors';
 
-const TASKS = [
-  {
-    id: 1,
-    title: 'Sector 4 Warehouse',
-    location: 'Andheri East, Industrial Area',
-    timeSlot: '09:00 - 12:00',
-    checkpoints: { done: 4, total: 12 },
-    status: 'in-progress',
-    priority: 'high',
-    image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&q=80',
-  },
-  {
-    id: 2,
-    title: 'Green Park Residence',
-    location: 'Koregaon Park, Lane 5',
-    timeSlot: '13:00 - 15:00',
-    checkpoints: { done: 0, total: 8 },
-    status: 'upcoming',
-    priority: 'routine',
-    image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&q=80',
-  },
-  {
-    id: 3,
-    title: 'North Gate Delivery Check',
-    location: 'Tech Park - Sector 4',
-    timeSlot: '15:30 - 16:00',
-    checkpoints: { done: 0, total: 5 },
-    status: 'upcoming',
-    priority: 'high',
-    image: 'https://images.unsplash.com/photo-1555529733-0e670560f8e1?w=600&q=80',
-  },
-];
+const TASKS = [];
 
 export default function AssignedPatrolTasks() {
   const navigation = useNavigation();
@@ -89,52 +58,60 @@ export default function AssignedPatrolTasks() {
           </View>
         </View>
 
-        {TASKS.map(task => (
-          <View key={task.id} style={styles.taskCard}>
-            {/* Site Image */}
-            <View style={styles.taskImageContainer}>
-              <Image source={{ uri: task.image }} style={styles.taskImage} resizeMode="cover" />
-              {getStatusBadge(task.status)}
-            </View>
-
-            <View style={styles.taskContent}>
-              <Text style={styles.taskTitle}>{task.title}</Text>
-              <View style={styles.locationRow}>
-                <MaterialIcons name="location-on" size={16} color={Colors.primary} />
-                <Text style={styles.locationText}>{task.location}</Text>
+        {TASKS.length === 0 ? (
+          <View style={styles.emptyState}>
+            <MaterialIcons name="event-available" size={64} color={Colors.border} />
+            <Text style={styles.emptyStateTitle}>No Upcoming Patrols</Text>
+            <Text style={styles.emptyStateSub}>You're all caught up for today!</Text>
+          </View>
+        ) : (
+          TASKS.map(task => (
+            <View key={task.id} style={styles.taskCard}>
+              {/* Site Image */}
+              <View style={styles.taskImageContainer}>
+                <Image source={{ uri: task.image }} style={styles.taskImage} resizeMode="cover" />
+                {getStatusBadge(task.status)}
               </View>
 
-              <View style={styles.infoRow}>
-                <View style={styles.infoPill}>
-                  <Text style={styles.infoLabel}>Time Slot</Text>
-                  <Text style={styles.infoValue}>{task.timeSlot}</Text>
+              <View style={styles.taskContent}>
+                <Text style={styles.taskTitle}>{task.title}</Text>
+                <View style={styles.locationRow}>
+                  <MaterialIcons name="location-on" size={16} color={Colors.primary} />
+                  <Text style={styles.locationText}>{task.location}</Text>
                 </View>
-                <View style={styles.infoPill}>
-                  <Text style={styles.infoLabel}>Checkpoints</Text>
-                  <View style={styles.checkpointCount}>
-                    <MaterialIcons name="flag" size={14} color={Colors.primary} />
-                    <Text style={styles.infoValue}>{task.checkpoints.done} / {task.checkpoints.total}</Text>
+
+                <View style={styles.infoRow}>
+                  <View style={styles.infoPill}>
+                    <Text style={styles.infoLabel}>Time Slot</Text>
+                    <Text style={styles.infoValue}>{task.timeSlot}</Text>
+                  </View>
+                  <View style={styles.infoPill}>
+                    <Text style={styles.infoLabel}>Checkpoints</Text>
+                    <View style={styles.checkpointCount}>
+                      <MaterialIcons name="flag" size={14} color={Colors.primary} />
+                      <Text style={styles.infoValue}>{task.checkpoints.done} / {task.checkpoints.total}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
 
-              {task.status === 'in-progress' ? (
-                <TouchableOpacity
-                  style={styles.continueBtn}
-                  onPress={() => navigation.navigate('PatrolChecklist')}
-                >
-                  <MaterialIcons name="explore" size={20} color={Colors.textWhite} />
-                  <Text style={styles.continueBtnText}>Continue Patrol</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.lockedArea}>
-                  <MaterialIcons name="lock" size={16} color={Colors.textMuted} />
-                  <Text style={styles.lockedText}>Unlocks at scheduled time</Text>
-                </View>
-              )}
+                {task.status === 'in-progress' ? (
+                  <TouchableOpacity
+                    style={styles.continueBtn}
+                    onPress={() => navigation.navigate('PatrolChecklist')}
+                  >
+                    <MaterialIcons name="explore" size={20} color={Colors.textWhite} />
+                    <Text style={styles.continueBtnText}>Continue Patrol</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.lockedArea}>
+                    <MaterialIcons name="lock" size={16} color={Colors.textMuted} />
+                    <Text style={styles.lockedText}>Unlocks at scheduled time</Text>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
-        ))}
+          ))
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -203,4 +180,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: Colors.border,
   },
   lockedText: { fontSize: 13, color: Colors.textMuted, fontWeight: '500' },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  emptyStateTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, marginTop: 16 },
+  emptyStateSub: { fontSize: 14, color: Colors.textSecondary, marginTop: 8 },
 });

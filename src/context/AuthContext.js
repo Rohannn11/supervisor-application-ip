@@ -40,43 +40,61 @@ export function AuthProvider({ children }) {
     return () => unsubscribe();
   }, []);
 
-  // Step 1: Send OTP to phone number via Firebase
+  // Step 1: Mock send OTP (Bypasses Firebase)
   const sendOTP = useCallback(async (phoneNumber, recaptchaVerifier) => {
     setIsLoading(true);
     try {
-      const result = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-      setConfirmationResult(result);
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      // For POC, we just set a fake confirmation result object so the UI moves forward
+      setConfirmationResult({ phoneNumber });
       setIsLoading(false);
       return { success: true };
     } catch (error) {
-      console.error('[Firebase] sendOTP error:', error);
+      console.error('[Mock] sendOTP error:', error);
       setIsLoading(false);
       return { success: false, error: error.message };
     }
   }, []);
 
-  // Step 2: Confirm OTP code
+  // Step 2: Mock confirm OTP code
   const confirmOTP = useCallback(async (otpCode) => {
     if (!confirmationResult) return { success: false, error: 'No pending OTP session.' };
     setIsLoading(true);
     try {
-      await confirmationResult.confirm(otpCode);
-      // onAuthStateChanged will fire and set user automatically
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // MOCK POC: Accept "123456" as the valid OTP
+      if (otpCode !== '123456') {
+        throw new Error('Invalid OTP code.');
+      }
+
+      const userProfile = {
+        uid: 'MOCK_USER_1042',
+        phone: confirmationResult.phoneNumber,
+        name: 'Supervisor',
+        role: 'Supervisor',
+        site: 'Tech Park',
+        shift: '08:00 AM - 04:00 PM',
+      };
+      
+      await AsyncStorage.setItem('user_session', JSON.stringify(userProfile));
+      setUser(userProfile);
       setIsLoading(false);
       return { success: true };
     } catch (error) {
-      console.error('[Firebase] confirmOTP error:', error);
+      console.error('[Mock] confirmOTP error:', error);
       setIsLoading(false);
-      return { success: false, error: 'Invalid OTP. Please try again.' };
+      return { success: false, error: 'Invalid OTP. Please enter 123456.' };
     }
   }, [confirmationResult]);
 
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
-      await auth.signOut();
+      await auth.signOut(); // Just in case a real session exists
     } catch (e) {
-      console.error('[Firebase] logout error:', e);
+      // ignore
     }
     await AsyncStorage.removeItem('user_session');
     setUser(null);

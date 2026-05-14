@@ -50,6 +50,47 @@ app.post('/api/auth/resolve-employee', async (req, res) => {
   }
 });
 
+// 1. Profile metrics
+app.get('/api/profile/metrics', verifyToken, async (req, res) => {
+  const uid = req.user.uid;
+  try {
+    const pool = getPool();
+    if (!pool) return res.status(500).json({ error: 'DB not available' });
+
+    // Mathematical aggregation: count total sessions, sum checkpoints, sum incidents
+    const [rows] = await pool.execute(`
+      SELECT 
+        COUNT(id) as totalPatrols,
+        COALESCE(SUM(checkpoints_completed), 0) as completedCheckpoints,
+        COALESCE(SUM(total_checkpoints), 0) as totalExpectedCheckpoints,
+        COALESCE(SUM(incidents_reported), 0) as incidentsReported
+      FROM patrol_sessions 
+      WHERE user_id = ? AND MONTH(start_time) = MONTH(CURRENT_DATE()) AND YEAR(start_time) = YEAR(CURRENT_DATE())
+    `, [uid]);
+
+    const data = rows[0];
+    const totalPatrols = data.totalPatrols || 0;
+    const incidents = data.incidentsReported || 0;
+    
+    let completionRate = 0;
+    if (data.totalExpectedCheckpoints > 0) {
+      completionRate = Math.round((data.completedCheckpoints / data.totalExpectedCheckpoints) * 100);
+    }
+
+    res.json({
+      success: true,
+      metrics: {
+        patrolsThisMonth: totalPatrols,
+        checklistCompletion: completionRate,
+        incidentsReported: incidents
+      }
+    });
+  } catch (e) {
+    console.error('[metrics] error:', e);
+    res.status(500).json({ error: 'DB error' });
+  }
+});
+
 app.get('/api/shift/today', verifyToken, async (req, res) => {
   const mockShift = {
     shiftId: 'SH-1024',

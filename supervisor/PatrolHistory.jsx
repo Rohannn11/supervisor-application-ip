@@ -11,43 +11,9 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 // Mock data for calendar dots
-const CALENDAR_EVENTS = {
-  3: 'approved', 4: 'pending', 5: 'approved', 7: 'sent-back',
-  10: 'approved', 12: 'pending', 18: 'approved', 22: 'approved',
-};
+const CALENDAR_EVENTS = {};
 
-const REPORTS = [
-  {
-    id: 1,
-    title: 'Warehouse A - Night Patrol',
-    date: 'Oct 12, 2023',
-    time: '02:15 AM',
-    duration: '45m',
-    status: 'approved',
-    type: 'checklist',
-    image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&q=80',
-  },
-  {
-    id: 2,
-    title: 'North Wing Security Check',
-    date: 'Oct 11, 2023',
-    time: '11:40 PM',
-    duration: '1h 10m',
-    status: 'pending',
-    type: 'incident',
-    image: 'https://images.unsplash.com/photo-1621619856624-42fd193a0661?w=600&q=80',
-  },
-  {
-    id: 3,
-    title: 'Basement Parking Log',
-    date: 'Oct 10, 2023',
-    time: '04:00 AM',
-    duration: '30m',
-    status: 'sent-back',
-    type: 'checklist',
-    image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&q=80',
-  },
-];
+const REPORTS = [];
 
 export default function PatrolHistory() {
   const navigation = useNavigation();
@@ -185,42 +151,50 @@ export default function PatrolHistory() {
           </TouchableOpacity>
         </View>
 
-        {REPORTS.map(report => {
-          const status = getStatusStyle(report.status);
-          return (
-            <View key={report.id} style={styles.reportCard}>
-              <View style={styles.reportImageContainer}>
-                <Image source={{ uri: report.image }} style={styles.reportImageActual} resizeMode="cover" />
-              </View>
+        {REPORTS.length === 0 ? (
+          <View style={styles.emptyState}>
+            <MaterialIcons name="folder-open" size={64} color={Colors.border} />
+            <Text style={styles.emptyStateTitle}>No Recent Reports</Text>
+            <Text style={styles.emptyStateSub}>You haven't submitted any patrol reports yet.</Text>
+          </View>
+        ) : (
+          REPORTS.map(report => {
+            const status = getStatusStyle(report.status);
+            return (
+              <View key={report.id} style={styles.reportCard}>
+                <View style={styles.reportImageContainer}>
+                  <Image source={{ uri: report.image }} style={styles.reportImageActual} resizeMode="cover" />
+                </View>
 
-              <View style={styles.reportContent}>
-                <View style={styles.reportTitleRow}>
-                  <Text style={styles.reportTitle}>{report.title}</Text>
-                  <View style={[styles.reportStatusBadge, { backgroundColor: status.bg }]}>
-                    <Text style={[styles.reportStatusText, { color: status.text }]}>{status.label}</Text>
+                <View style={styles.reportContent}>
+                  <View style={styles.reportTitleRow}>
+                    <Text style={styles.reportTitle}>{report.title}</Text>
+                    <View style={[styles.reportStatusBadge, { backgroundColor: status.bg }]}>
+                      <Text style={[styles.reportStatusText, { color: status.text }]}>{status.label}</Text>
+                    </View>
                   </View>
+                  <View style={styles.reportMeta}>
+                    <View style={styles.metaItem}>
+                      <MaterialIcons name="calendar-today" size={13} color={Colors.textMuted} />
+                      <Text style={styles.metaText}>{report.date}</Text>
+                    </View>
+                    <View style={styles.metaItem}>
+                      <MaterialIcons name="schedule" size={13} color={Colors.textMuted} />
+                      <Text style={styles.metaText}>{report.time}</Text>
+                    </View>
+                    <View style={styles.metaItem}>
+                      <MaterialIcons name="timer" size={13} color={Colors.textMuted} />
+                      <Text style={styles.metaText}>{report.duration}</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity style={styles.viewReportLink}>
+                    <Text style={styles.viewReportText}>View Report →</Text>
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.reportMeta}>
-                  <View style={styles.metaItem}>
-                    <MaterialIcons name="calendar-today" size={13} color={Colors.textMuted} />
-                    <Text style={styles.metaText}>{report.date}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <MaterialIcons name="schedule" size={13} color={Colors.textMuted} />
-                    <Text style={styles.metaText}>{report.time}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <MaterialIcons name="timer" size={13} color={Colors.textMuted} />
-                    <Text style={styles.metaText}>{report.duration}</Text>
-                  </View>
-                </View>
-                <TouchableOpacity style={styles.viewReportLink}>
-                  <Text style={styles.viewReportText}>View Report →</Text>
-                </TouchableOpacity>
               </View>
-            </View>
-          );
-        })}
+            );
+          })
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -296,4 +270,7 @@ const styles = StyleSheet.create({
   metaText: { fontSize: 12, color: Colors.textSecondary },
   viewReportLink: { paddingTop: 8 },
   viewReportText: { fontSize: 14, fontWeight: '700', color: Colors.primary },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  emptyStateTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, marginTop: 16 },
+  emptyStateSub: { fontSize: 14, color: Colors.textSecondary, marginTop: 8 },
 });

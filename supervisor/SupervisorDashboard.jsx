@@ -18,13 +18,6 @@ export default function SupervisorDashboard() {
     navigation.navigate('ActivePatrolMap');
   };
 
-  const handleSOS = () => {
-    Alert.alert(
-      "SOS Triggered!",
-      "Emergency alert sent to Area Manager and Command Center with your live GPS location.",
-      [{ text: "OK" }]
-    );
-  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -155,7 +148,7 @@ export default function SupervisorDashboard() {
               <MaterialIcons name="fact-check" size={24} color={Colors.primaryMuted} />
             </View>
             <Text style={styles.statLabel}>Pending Checklists</Text>
-            <Text style={styles.statValue}>04</Text>
+            <Text style={styles.statValue}>0</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -166,21 +159,13 @@ export default function SupervisorDashboard() {
               <MaterialIcons name="assessment" size={24} color={Colors.dangerDark} />
             </View>
             <Text style={styles.statLabel}>Incident Reports</Text>
-            <Text style={[styles.statValue, { color: Colors.danger }]}>02</Text>
+            <Text style={[styles.statValue, { color: Colors.danger }]}>0</Text>
           </TouchableOpacity>
         </View>
 
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* Floating SOS Button */}
-      <TouchableOpacity 
-        style={styles.sosButton} 
-        onLongPress={handleSOS} 
-        delayLongPress={1000}
-      >
-        <MaterialIcons name="sos" size={32} color={Colors.textWhite} />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -278,20 +263,5 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
   statValue: { fontSize: 28, fontWeight: '900', color: Colors.primary, marginTop: 4 },
-  sosButton: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 8,
-    shadowColor: Colors.danger,
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-  },
 });
+

@@ -59,7 +59,7 @@ export default function ChecklistHub() {
                 style={[styles.spotCard, spot.checklistDone && styles.spotCardDone]}
                 onPress={() => {
                   if (spot.checklistDone) return; // already done
-                  navigation.navigate('PatrolChecklist', {
+                  navigation.navigate('SpotQRScan', {
                     spotId: spot.id,
                     spotName: spot.name,
                     spotIndex: index,

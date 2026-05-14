@@ -14,9 +14,17 @@ const LANGUAGES = [
 
 export function AppProvider({ children }) {
   const [language, setLanguage] = useState('EN');
-  const [gpsStatus, setGpsStatus] = useState('disconnected'); // 'connected' | 'disconnected'
+  const [gpsStatus, setGpsStatus] = useState('disconnected');
   const [isPatrolActive, setIsPatrolActive] = useState(false);
   const [sosActive, setSosActive] = useState(false);
+  const [isDarkMode, setIsDarkModeState] = useState(false);
+  const [notifications, setNotifications] = useState(true);
+  const [locationTracking, setLocationTracking] = useState(true);
+
+  const setIsDarkMode = useCallback(async (val) => {
+    setIsDarkModeState(val);
+    try { await AsyncStorage.setItem('isDarkMode', JSON.stringify(val)); } catch (_) {}
+  }, []);
   
   const [currentLocation, setCurrentLocation] = useState(null);
   const [locationError, setLocationError] = useState(null);
@@ -45,11 +53,11 @@ export function AppProvider({ children }) {
     const loadState = async () => {
       try {
         const savedPatrol = await AsyncStorage.getItem('isPatrolActive');
-        if (savedPatrol !== null) {
-          setIsPatrolActive(JSON.parse(savedPatrol));
-        }
+        if (savedPatrol !== null) setIsPatrolActive(JSON.parse(savedPatrol));
+        const savedDark = await AsyncStorage.getItem('isDarkMode');
+        if (savedDark !== null) setIsDarkModeState(JSON.parse(savedDark));
       } catch (e) {
-        console.error('Failed to load patrol state', e);
+        console.error('Failed to load app state', e);
       }
     };
     loadState();
@@ -85,6 +93,12 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider
       value={{
+        isDarkMode,
+        setIsDarkMode,
+        notifications,
+        setNotifications,
+        locationTracking,
+        setLocationTracking,
         language,
         setLanguage,
         languages: LANGUAGES,

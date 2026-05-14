@@ -6,7 +6,7 @@ import HomeStack from './HomeStack';
 import TasksStack from './TasksStack';
 import ChecklistStack from './ChecklistStack';
 import ReportsStack from './ReportsStack';
-import ProfileScreen from '../../supervisor/ProfileScreen';
+import ProfileStack from './ProfileStack';
 import SOSFloatingButton from '../components/SOSFloatingButton.jsx';
 import { Colors } from '../theme/colors';
 
@@ -71,7 +71,7 @@ export default function MainTabNavigator() {
         />
         <Tab.Screen
           name="ProfileTab"
-          component={ProfileScreen}
+          component={ProfileStack}
           options={{
             tabBarLabel: 'Profile',
             tabBarIcon: ({ color, size }) => (

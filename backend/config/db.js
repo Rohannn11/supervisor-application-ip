@@ -91,6 +91,19 @@ const initSchema = async (dbPool) => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    await dbPool.execute(`
+      CREATE TABLE IF NOT EXISTS patrol_sessions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id VARCHAR(50),
+        site VARCHAR(100),
+        start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        end_time TIMESTAMP NULL,
+        incidents_reported INT DEFAULT 0,
+        checkpoints_completed INT DEFAULT 0,
+        total_checkpoints INT DEFAULT 0
+      );
+    `);
     
     await dbPool.execute(`
       CREATE TABLE IF NOT EXISTS employees (
