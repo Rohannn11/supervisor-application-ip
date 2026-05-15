@@ -10,6 +10,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Colors } from '../src/theme/colors';
 import { useAuth } from '../src/context/AuthContext';
 import { usePatrol } from '../src/context/PatrolContext';
+import { uploadChecklistEvidence } from '../src/services/imageUploadService';
 
 const CHECKLIST_ITEMS = [
   { id: 1, question: 'Is the main gate secure and locked?' },
@@ -79,6 +80,7 @@ export default function PatrolChecklist() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
+    // ── 1. SQL text submission ────────────────────────────────────────────────────
     try {
       const payload = {
         shiftId: user?.shift || 'SH-1024', spotId, spotName,
@@ -97,8 +99,33 @@ export default function PatrolChecklist() {
       console.warn('API Error (continuing for POC):', e.name === 'AbortError' ? 'Timeout' : e.message);
     } finally {
       clearTimeout(timeoutId);
-      setIsSubmitting(false);
     }
+
+    // ── 2. Upload 'No' evidence photos to Cloudinary ─────────────────────────────
+    const evidenceItems = answeredItems.filter(i => i.status === 'no' && i.uploadUri);
+    if (evidenceItems.length > 0) {
+      await Promise.allSettled(
+        evidenceItems.map(item =>
+          uploadChecklistEvidence(
+            item.uploadUri,
+            {
+              shiftId: user?.shift || 'SH-1024',
+              spotId,
+              checklistItemId: item.id,
+            },
+            process.env.EXPO_PUBLIC_MOCK_TOKEN
+          ).then(r => {
+            if (r.success) {
+              console.log(`[Upload] Checklist item ${item.id} evidence uploaded:`, r.data?.image?.imageUrl);
+            } else {
+              console.warn(`[Upload] Checklist item ${item.id} upload failed:`, r.error);
+            }
+          })
+        )
+      );
+    }
+
+    setIsSubmitting(false);
   };
 
   // Submit and go to occurrences screen

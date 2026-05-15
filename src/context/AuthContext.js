@@ -11,6 +11,16 @@ export function AuthProvider({ children }) {
   const [confirmationResult, setConfirmationResult] = useState(null);
 
   useEffect(() => {
+    if (!auth) {
+      console.log('[Auth] Firebase auth not initialized. Checking local session only.');
+      (async () => {
+        const stored = await AsyncStorage.getItem('user_session');
+        setUser(stored ? JSON.parse(stored) : null);
+        setIsLoading(false);
+      })();
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         // Firebase Auth is successful.
@@ -66,8 +76,8 @@ export function AuthProvider({ children }) {
       return { success: true };
     };
 
-    // Fast-track bypass for the test number to avoid any delay
-    if (phoneNumber.includes('9999999999')) {
+    // Fast-track bypass for the test number or if auth is not initialized
+    if (!auth || phoneNumber.includes('9999999999')) {
       return enterMockMode();
     }
 

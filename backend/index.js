@@ -6,6 +6,8 @@ const { Server } = require('socket.io');
 const { connectMySQL, initSchema, getPool } = require('./config/db');
 const { connectMongo } = require('./config/mongo');
 const { verifyToken } = require('./config/firebase');
+const { configureCloudinary } = require('./config/cloudinary');
+const imageRoutes = require('./routes/images');
 
 const app = express();
 const server = http.createServer(app);
@@ -20,8 +22,12 @@ const initDbs = async () => {
   dbPool = await connectMySQL();
   if (dbPool) await initSchema(dbPool);
   await connectMongo();
+  configureCloudinary(); // validates Cloudinary credentials at startup
 };
 initDbs();
+
+// ── Image upload & retrieval routes ──────────────────────────────────────────
+app.use('/api/images', imageRoutes);
 
 // Basic health check
 app.get('/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() }));
@@ -194,6 +200,17 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
   });
+});
+
+// ── Global error handler for multer / upload failures ────────────────────────
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  const multer = require('multer');
+  if (err instanceof multer.MulterError || err.http_code) {
+    return res.status(400).json({ success: false, error: err.message });
+  }
+  console.error('[Server] Unhandled error:', err);
+  res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
 const PORT = process.env.PORT || 3000;

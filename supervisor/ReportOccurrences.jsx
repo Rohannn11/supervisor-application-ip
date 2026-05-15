@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, KeyboardAvoidingView, Platform, Image, Alert
+  TextInput, KeyboardAvoidingView, Platform, Image, Alert, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { Colors } from '../src/theme/colors';
 import { usePatrol } from '../src/context/PatrolContext';
 import { useAuth } from '../src/context/AuthContext';
+import { uploadOccurrenceImages } from '../src/services/imageUploadService';
 
 export default function ReportOccurrences() {
   const navigation = useNavigation();
@@ -19,6 +20,7 @@ export default function ReportOccurrences() {
   const { markSpotDone } = usePatrol();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState(''); // 'uploading' | 'done' | 'failed' | ''
 
   // Start with empty list — occurrences are optional
   const [occurrences, setOccurrences] = useState([]);
@@ -91,13 +93,13 @@ export default function ReportOccurrences() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
+    // ── 1. Submit text/metadata to SQL backend ────────────────────────────────
     try {
       const payload = {
         shiftId: user?.shift || 'SH-1024',
         spotId,
         occurrences: validOccurrences
       };
-      
       await fetch(`${process.env.EXPO_PUBLIC_API_BASE}/api/occurrences`, {
         method: 'POST',
         headers: { 
@@ -111,8 +113,27 @@ export default function ReportOccurrences() {
       console.warn('Occurrence API Error (continuing for POC):', e.name === 'AbortError' ? 'Timeout' : e.message);
     } finally {
       clearTimeout(timeoutId);
-      setIsSubmitting(false);
     }
+
+    // ── 2. Upload evidence images to Cloudinary via backend ───────────────────
+    const allUris = validOccurrences.flatMap(o => o.evidence || []);
+    if (allUris.length > 0) {
+      setUploadStatus('uploading');
+      const result = await uploadOccurrenceImages(
+        allUris,
+        { shiftId: user?.shift || 'SH-1024', spotId },
+        process.env.EXPO_PUBLIC_MOCK_TOKEN
+      );
+      if (result.success) {
+        console.log('[Upload] Evidence uploaded to Cloudinary:', result.data?.images?.length, 'file(s)');
+        setUploadStatus('done');
+      } else {
+        console.warn('[Upload] Cloudinary upload failed (non-blocking):', result.error);
+        setUploadStatus('failed');
+      }
+    }
+
+    setIsSubmitting(false);
   };
 
   const handleSubmit = async () => {
@@ -243,9 +264,38 @@ export default function ReportOccurrences() {
       </KeyboardAvoidingView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
-          <Text style={styles.submitBtnText}>Submit Spot Report</Text>
-          <MaterialIcons name="check-circle" size={20} color={Colors.textWhite} />
+        {uploadStatus === 'uploading' && (
+          <View style={styles.uploadBanner}>
+            <ActivityIndicator size="small" color={Colors.primary} />
+            <Text style={styles.uploadBannerText}>Uploading evidence to cloud…</Text>
+          </View>
+        )}
+        {uploadStatus === 'done' && (
+          <View style={[styles.uploadBanner, styles.uploadBannerSuccess]}>
+            <MaterialIcons name="cloud-done" size={16} color={Colors.success} />
+            <Text style={[styles.uploadBannerText, { color: Colors.success }]}>Evidence uploaded successfully</Text>
+          </View>
+        )}
+        {uploadStatus === 'failed' && (
+          <View style={[styles.uploadBanner, styles.uploadBannerFail]}>
+            <MaterialIcons name="cloud-off" size={16} color={Colors.danger} />
+            <Text style={[styles.uploadBannerText, { color: Colors.danger }]}>Cloud upload failed — data saved locally</Text>
+          </View>
+        )}
+        <TouchableOpacity
+          style={[styles.submitBtn, isSubmitting && { opacity: 0.7 }]}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        >
+          {isSubmitting
+            ? <ActivityIndicator color={Colors.textWhite} />
+            : (
+              <>
+                <Text style={styles.submitBtnText}>Submit Spot Report</Text>
+                <MaterialIcons name="check-circle" size={20} color={Colors.textWhite} />
+              </>
+            )
+          }
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -328,4 +378,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, elevation: 2,
   },
   submitBtnText: { color: Colors.textWhite, fontSize: 16, fontWeight: 'bold' },
+  uploadBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.background, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 8, marginBottom: 8,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  uploadBannerSuccess: { borderColor: Colors.success, backgroundColor: '#f0fdf4' },
+  uploadBannerFail:    { borderColor: Colors.danger,  backgroundColor: '#fef2f2' },
+  uploadBannerText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, flex: 1 },
+
 });

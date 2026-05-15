@@ -17,11 +17,13 @@ This document outlines the tasks that have been completed and those that remain 
 
 ## 2. To-Do: Pending Tasks for System Completion
 
-- [ ] **MongoDB Configuration:**
-  - Needs to be configured to handle large-scale, unstructured document logs if the SQL architecture faces limitations. MongoDB can be used for deep analytics or raw GPS tracking histories.
-- [ ] **Cloudinary Integration (Data Storage):**
-  - Implement direct uploads for image handling. Replace the local URI references with Cloudinary API logic.
-  - The API should accept base64 or multipart/form-data from the React Native app, upload to Cloudinary, and return a secure HTTPS URL to save into the SQL DB.
+- [x] **MongoDB Configuration:**
+  - Successfully configured to handle large-scale image metadata.
+  - Connected to MongoDB Atlas cluster.
+- [x] **Cloudinary Integration (Data Storage):**
+  - Implemented direct uploads using `multer-storage-cloudinary`.
+  - Created modular upload middleware for incidents, checklists, and reports.
+  - Secured HTTPS URL storage in MongoDB metadata.
 - [ ] **Real Authentication API Connections:**
   - Build out the `/api/auth/resolve-employee` endpoint on the backend to correctly look up Employee IDs against the SQL TiDB and return masked mobile numbers for Firebase OTP.
 
